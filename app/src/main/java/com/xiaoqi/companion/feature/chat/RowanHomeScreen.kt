@@ -207,7 +207,7 @@ private fun RowanHomeContent(
                         colors = listOf(
                             ChatColors.InputSurface,
                             presenceColors.backgroundTint,
-                            ChatColors.CardSurface,
+                            MaterialTheme.colorScheme.background,
                         ),
                     )
                 ),
@@ -304,8 +304,8 @@ private fun LongTaskEntry(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        color = Color.White.copy(alpha = 0.58f),
+        shape = MaterialTheme.shapes.small,
+        color = ChatColors.CardSurface.copy(alpha = 0.82f),
         tonalElevation = 0.dp,
         shadowElevation = 1.dp,
     ) {

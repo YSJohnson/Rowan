@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -83,7 +82,7 @@ import com.xiaoqi.companion.core.companion.model.ToolCallStatus
 import com.xiaoqi.companion.core.presence.PresenceAnimationState
 import com.xiaoqi.companion.core.presence.PresenceMode
 import com.xiaoqi.companion.core.presence.PresenceUiState
-import com.xiaoqi.companion.ui.theme.ChatColors
+import com.xiaoqi.companion.ui.theme.RowanPalette
 import com.xiaoqi.companion.ui.theme.CompanionTheme
 import com.xiaoqi.companion.core.logging.AppLogger
 import com.xiaoqi.companion.core.logging.LogTags
@@ -337,15 +336,7 @@ fun ChatScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            ChatColors.InputSurface,
-                            ChatColors.CardSurface,
-                            ChatColors.InputSurface,
-                        ),
-                    ),
-                ),
+                .background(RowanPalette.ambientBackdrop(MaterialTheme.colorScheme)),
         ) {
         Column(
             modifier = Modifier
