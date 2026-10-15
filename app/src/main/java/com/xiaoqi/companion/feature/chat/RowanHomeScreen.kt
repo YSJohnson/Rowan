@@ -1,0 +1,516 @@
+package com.xiaoqi.companion.feature.chat
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.xiaoqi.companion.BuildConfig
+import com.xiaoqi.companion.core.logging.AppLogger
+import com.xiaoqi.companion.core.logging.LogTags
+import com.xiaoqi.companion.core.presence.PresenceMode
+import com.xiaoqi.companion.core.task.activeSummary
+import com.xiaoqi.companion.feature.chat.HomePresencePalette
+import com.xiaoqi.companion.feature.chat.animated
+import com.xiaoqi.companion.feature.chat.homePalette
+import com.xiaoqi.companion.feature.chat.presence.LuminousRowanAvatar
+import com.xiaoqi.companion.feature.chat.presence.PresenceBackdropAndHalo
+import com.xiaoqi.companion.ui.theme.ChatColors
+
+/**
+ * 主屏(Rowan Home Stage):
+ * - 顶栏:Memory / MCP / Settings 入口
+ * - 中央:Presence 视觉舞台(背景光晕 + Rowan 角色 + 状态文案)
+ *
+ * 视觉绘制拆分到 [feature.chat.presence] 子包:
+ * - [PresenceBackdropAndHalo]:背景光晕
+ * - [LuminousRowanAvatar]:Rowan 角色本体
+ */
+@Composable
+fun RowanHomeScreen(
+    viewModel: ChatViewModel,
+    onOpenChat: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenMemoryRoom: () -> Unit,
+    onOpenMcpSettings: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    var actionInsight by remember {
+        mutableStateOf<com.xiaoqi.companion.feature.chat.ChatInsight?>(null)
+    }
+    var showEvidence by remember { mutableStateOf(false) }
+
+    RowanHomeContent(
+        uiState = uiState,
+        onOpenChat = onOpenChat,
+        onPresenceTapped = { viewModel.onPresenceTapped() },
+        onOpenSettings = onOpenSettings,
+        onOpenMemoryRoom = onOpenMemoryRoom,
+        onOpenMcpSettings = onOpenMcpSettings,
+        onInsightLongPress = { insight ->
+            AppLogger.debug(
+                LogTags.Chat,
+                "insight_long_pressed",
+                "insightId" to insight.id,
+                "category" to insight.category,
+            )
+            showEvidence = false
+            actionInsight = insight
+        },
+        onInsightDismiss = { insight ->
+            AppLogger.info(
+                LogTags.Chat,
+                "insight_dismissed",
+                "insightId" to insight.id,
+                "category" to insight.category,
+            )
+            viewModel.dismissInsight(insight.id)
+        },
+        onInsightChat = { insight ->
+            val prefill = "我们聊聊: ${insight.headline}?"
+            AppLogger.info(
+                LogTags.Chat,
+                "insight_chat_pressed",
+                "insightId" to insight.id,
+                "prefillLength" to prefill.length,
+            )
+            viewModel.consumePrefillPrompt(prefill)
+            viewModel.openInsight(insight.id)
+            onOpenChat()
+        },
+        actionInsight = actionInsight,
+        onActionDismiss = {
+            AppLogger.debug(LogTags.Chat, "insight_action_dismissed")
+            actionInsight = null; showEvidence = false
+        },
+        onActionMute = { insight, days ->
+            AppLogger.info(
+                LogTags.Chat,
+                "insight_category_muted",
+                "insightId" to insight.id,
+                "category" to insight.category,
+                "days" to days,
+            )
+            viewModel.muteInsightCategory(insight.id, insight.category, days)
+            actionInsight = null
+        },
+        onActionAcknowledge = { insight ->
+            AppLogger.info(
+                LogTags.Chat,
+                "insight_acknowledged",
+                "insightId" to insight.id,
+                "category" to insight.category,
+            )
+            viewModel.dismissInsight(insight.id)
+            actionInsight = null
+        },
+        onShowEvidence = {
+            showEvidence = !showEvidence
+            AppLogger.debug(
+                LogTags.Chat,
+                "insight_evidence_toggled",
+                "visible" to showEvidence,
+            )
+        },
+        onChatFromAction = { insight ->
+            AppLogger.info(
+                LogTags.Chat,
+                "insight_chat_from_action",
+                "insightId" to insight.id,
+            )
+            viewModel.openInsight(insight.id)
+            actionInsight = null
+        },
+        showEvidence = showEvidence,
+    )
+}
+
+@Composable
+private fun RowanHomeContent(
+    uiState: ChatUiState,
+    onOpenChat: () -> Unit,
+    onPresenceTapped: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenMemoryRoom: () -> Unit,
+    onOpenMcpSettings: () -> Unit,
+    onInsightLongPress: (com.xiaoqi.companion.feature.chat.ChatInsight) -> Unit,
+    onInsightDismiss: (com.xiaoqi.companion.feature.chat.ChatInsight) -> Unit,
+    onInsightChat: (com.xiaoqi.companion.feature.chat.ChatInsight) -> Unit,
+    actionInsight: com.xiaoqi.companion.feature.chat.ChatInsight?,
+    onActionDismiss: () -> Unit,
+    onActionMute: (com.xiaoqi.companion.feature.chat.ChatInsight, Int) -> Unit,
+    onActionAcknowledge: (com.xiaoqi.companion.feature.chat.ChatInsight) -> Unit,
+    onShowEvidence: () -> Unit,
+    onChatFromAction: (com.xiaoqi.companion.feature.chat.ChatInsight) -> Unit,
+    showEvidence: Boolean,
+) {
+    val presenceColors = uiState.presence.homePalette().animated()
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0),
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            ChatColors.InputSurface,
+                            presenceColors.backgroundTint,
+                            ChatColors.CardSurface,
+                        ),
+                    )
+                ),
+        ) {
+            androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                item {
+                    HomeTopBar(
+                        onOpenMemoryRoom = onOpenMemoryRoom,
+                        onOpenMcpSettings = onOpenMcpSettings,
+                        onOpenSettings = onOpenSettings,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                item {
+                    PresenceStage(
+                        uiState = uiState,
+                        palette = presenceColors,
+                        onPresenceTapped = onPresenceTapped,
+                        onOpenChat = onOpenChat,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 280.dp),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                }
+                val taskSummary = uiState.longTasks.activeSummary()
+                if (taskSummary.hasActiveTasks) {
+                    item {
+                        LongTaskEntry(
+                            activeCount = taskSummary.activeCount,
+                            latestTitle = taskSummary.latestTitle,
+                            onClick = onOpenChat,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                }
+                item {
+                    com.xiaoqi.companion.feature.insight.MoodTrendChartSection(
+                        snapshots = uiState.moodTrend,
+                    )
+                }
+                if (uiState.isInsightAnalyzing) {
+                    item {
+                        com.xiaoqi.companion.feature.insight.InsightAnalyzingIndicator()
+                    }
+                }
+                if (uiState.insights.isNotEmpty()) {
+                    item {
+                        com.xiaoqi.companion.feature.insight.InsightCardList(
+                            insights = uiState.insights,
+                            onInsightLongPress = onInsightLongPress,
+                            onInsightDismiss = onInsightDismiss,
+                            onInsightChat = onInsightChat,
+                        )
+                    }
+                }
+                item {
+                    Spacer(
+                        Modifier.windowInsetsBottomHeight(
+                            androidx.compose.foundation.layout.WindowInsets.navigationBars,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    actionInsight?.let { insight ->
+        com.xiaoqi.companion.feature.insight.InsightLongPressDialog(
+            insight = insight,
+            evidence = insight.evidenceView,
+            showEvidence = showEvidence,
+            onDismiss = onActionDismiss,
+            onMute = { days -> onActionMute(insight, days) },
+            onAcknowledge = { onActionAcknowledge(insight) },
+            onShowEvidence = onShowEvidence,
+            onChat = { onChatFromAction(insight) },
+        )
+    }
+}
+
+@Composable
+private fun LongTaskEntry(
+    activeCount: Int,
+    latestTitle: String?,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White.copy(alpha = 0.58f),
+        tonalElevation = 0.dp,
+        shadowElevation = 1.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = "任务 · $activeCount 个进行中",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = latestTitle ?: "查看正在处理的任务",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeTopBar(
+    onOpenMemoryRoom: () -> Unit,
+    onOpenMcpSettings: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = BuildConfig.BRAND_NAME,
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Normal,
+                    letterSpacing = 0.sp,
+                ),
+                color = primary,
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            HomeTopActionIcon(
+                imageVector = Icons.Default.Favorite,
+                tooltip = "记忆",
+                onClick = onOpenMemoryRoom,
+            )
+            HomeTopActionIcon(
+                imageVector = Icons.Default.Build,
+                tooltip = "MCP",
+                onClick = onOpenMcpSettings,
+            )
+            HomeTopActionIcon(
+                imageVector = Icons.Default.Settings,
+                tooltip = "设置",
+                onClick = onOpenSettings,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeTopActionIcon(
+    imageVector: androidx.compose.ui.graphics.vector.ImageVector,
+    tooltip: String,
+    onClick: () -> Unit,
+) {
+    TooltipBox(
+        positionProvider = androidx.compose.material3.TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(tooltip) } },
+        state = rememberTooltipState(),
+    ) {
+        Surface(
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = Color.White.copy(alpha = 0.52f),
+            shadowElevation = 2.dp,
+            tonalElevation = 0.dp,
+        ) {
+            IconButton(onClick = onClick) {
+                Icon(
+                    imageVector = imageVector,
+                    contentDescription = tooltip,
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.78f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresenceStage(
+    uiState: ChatUiState,
+    palette: HomePresencePalette,
+    onPresenceTapped: () -> Unit,
+    onOpenChat: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val stageHeight = (maxHeight * 0.56f).coerceIn(260.dp, 360.dp)
+        val avatarSize = (stageHeight * 0.52f).coerceIn(140.dp, 200.dp)
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(stageHeight),
+                contentAlignment = Alignment.Center,
+            ) {
+                PresenceBackdropAndHalo(
+                    palette = palette,
+                    animationState = uiState.presenceAnimation,
+                    mode = uiState.presence.mode,
+                    reaction = uiState.presence.reaction,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                RowanPetAvatar(
+                    presence = uiState.presence,
+                    animationState = uiState.presenceAnimation,
+                    size = avatarSize,
+                    onClick = {
+                        onPresenceTapped()
+                        onOpenChat()
+                    },
+                )
+            }
+            AnimatedContent(
+                targetState = uiState.homePresenceLine(),
+                transitionSpec = {
+                    fadeIn(tween(RowanMotion.LongMs)) togetherWith fadeOut(tween(RowanMotion.MediumMs))
+                },
+                label = "presence-line",
+            ) { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 0.sp,
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp)
+                        .clickable(onClick = onOpenChat),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Color.White.copy(alpha = 0.72f),
+                shadowElevation = 1.dp,
+                tonalElevation = 0.dp,
+                modifier = Modifier
+                    .clickable(onClick = onOpenChat),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Chat,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "和 Rowan 聊聊",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun ChatUiState.homePresenceLine(): String =
+    when {
+        isPreparingImage -> "读图中"
+        pendingImage != null -> "图就绪"
+        isLoading -> "思考中"
+        inputText.isNotBlank() -> "在听"
+        presence.mode == PresenceMode.SEARCHING -> "查找中"
+        // 与其他"X中"句式一致(读图/思考/查找/休息)。
+        presence.mode == PresenceMode.HAPPY -> "开心中"
+        presence.mode == PresenceMode.TIRED || presence.mode == PresenceMode.SLEEPING -> "休息中"
+        else -> "在这里"
+    }

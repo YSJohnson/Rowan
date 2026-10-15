@@ -1,0 +1,259 @@
+@import 'tailwindcss';
+
+/* ============================================================
+ * Design Tokens — Rowan
+ *
+ * 主舞台：深色旗舰（参考 Linear）
+ * 文档站：米色 Anthropic 风（独立 layout）
+ *
+ * 配色策略：单源真相，所有 token 通过 @theme 暴露给 Tailwind v4
+ * ============================================================ */
+
+@theme {
+  /* 颜色 — 深色舞台 */
+  --color-background: #08090a;
+  --color-foreground: #f7f8f8;
+  --color-muted: rgba(247, 248, 248, 0.6);
+  --color-subtle: rgba(247, 248, 248, 0.08);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* 强调色 */
+  --color-accent: #7c5cff;
+  --color-accent-foreground: #ffffff;
+  --color-accent-muted: rgba(124, 92, 255, 0.16);
+
+  /* 语义功能色 — Presence 状态 / Memory 分类 / Agent 工具类 */
+  --rowan-listening: #5cefff;
+  --rowan-thinking: #a07cff;
+  --rowan-speaking: #ffb85c;
+  --rowan-memory: #5cffb0;
+  --rowan-health: #ff7c9c;
+  --rowan-alert: #ff5c7c;
+  --rowan-muted: #9090a8;
+  --rowan-sleeping: #404060;
+
+  /* 状态色 */
+  --color-success: #5cffb0;
+  --color-warning: #ffb85c;
+  --color-error: #ff5c7c;
+
+  /* 字体 */
+  --font-sans: var(--font-sans, ui-sans-serif), system-ui, sans-serif;
+  --font-mono: var(--font-mono, ui-monospace), 'SF Mono', monospace;
+  --font-serif: var(--font-serif, ui-serif-serif), Georgia, 'Times New Roman', serif;
+  --font-display: var(--font-display, ui-sans-serif), system-ui, sans-serif;
+
+  /* 排版比例（基于 1.25 major third） */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.75rem;
+  --text-5xl: 3.75rem;
+  --text-6xl: 5rem;
+  --text-7xl: 7rem;
+  --text-8xl: 9rem;
+  --text-9xl: 12rem;
+
+  /* 行高 — display 用于大标题，normal/relaxed 已加大 */
+  --leading-tight: 1.05;
+  --leading-snug: 1.2;
+  --leading-display: 1.08;
+  --leading-normal: 1.55;
+  --leading-relaxed: 1.7;
+
+  /* 字间距 */
+  --tracking-tighter: -0.04em;
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.04em;
+  --tracking-label: 0.18em;
+
+  /* 圆角 */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* 容器 */
+  --container-3xs: 16rem;
+  --container-2xs: 18rem;
+  --container-xs: 20rem;
+  --container-sm: 24rem;
+  --container-md: 28rem;
+  --container-lg: 32rem;
+  --container-xl: 36rem;
+  --container-2xl: 42rem;
+  --container-3xl: 48rem;
+  --container-4xl: 56rem;
+  --container-5xl: 64rem;
+  --container-6xl: 72rem;
+  --container-7xl: 80rem;
+
+  /* 缓动曲线（动效用） */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-expo: cubic-bezier(0.87, 0, 0.13, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* mono 标签 — 章节编号、分类名、数据标注（颜色由 text-muted / text-accent 单独控制） */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+/* ============================================================
+ * 基础样式
+ * ============================================================ */
+
+* {
+  border-color: var(--color-border);
+}
+
+html {
+  /* 原生 CSS scroll-snap — 一次一屏，浏览器原生物理，零 JS 开销 */
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-feature-settings:
+    'rlig' 1,
+    'calt' 1,
+    'ss01' 1;
+  font-variant-ligatures: contextual;
+  overflow-x: clip;
+}
+
+/* 文本选区 */
+::selection {
+  background-color: var(--color-accent-muted);
+  color: var(--color-accent-foreground);
+}
+
+/* 焦点环（无障碍） */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+/* 减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 磁性光标：圆环作为纯视觉增强，原生光标不隐藏 */
+
+/* 圆环 — rAF lerp 跟随 + hover 放大 */
+.magnetic-ring {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  will-change: transform;
+  transform: translate3d(-100px, -100px, 0) translate(-50%, -50%) scale(1);
+  transition:
+    opacity 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.magnetic-ring.is-hovering {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+}
+
+/* ═════════════ 场景手机动画增强 ═════════════ */
+
+/* SVG 路径绘制 —— stroke-dashoffset 从全长 → 0 */
+.draw-path {
+  stroke-dasharray: var(--path-length, 200);
+  stroke-dashoffset: var(--path-length, 200);
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+}
+.draw-path.is-visible {
+  stroke-dashoffset: 0;
+}
+
+/* 玻璃卡片悬停抬升 */
+.glass-hover {
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.glass-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 70px -20px rgba(0, 0, 0, 0.55);
+}
+
+/* 工具调用完成点弹入 */
+@keyframes dot-bounce-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.tool-dot-done {
+  animation: dot-bounce-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Insight 卡片内边框微光脉冲（Dream Loop / Weekly 用） */
+@keyframes insight-glow {
+  0%, 100% { border-color: color-mix(in srgb, var(--rowan-thinking) 20%, transparent); }
+  50% { border-color: color-mix(in srgb, var(--rowan-thinking) 40%, transparent); }
+}
+.insight-glow {
+  animation: insight-glow 4s ease-in-out infinite;
+}
+
+/* Storage 进度条填充动画 */
+@keyframes bar-fill {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+.animate-bar-fill {
+  animation: bar-fill 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}

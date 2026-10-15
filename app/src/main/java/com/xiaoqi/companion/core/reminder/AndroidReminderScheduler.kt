@@ -1,0 +1,123 @@
+package com.xiaoqi.companion.core.reminder
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.xiaoqi.companion.core.logging.AppLogger
+import com.xiaoqi.companion.core.logging.LogTags
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+
+class AndroidReminderScheduler(
+    @param:ApplicationContext private val context: Context,
+    private val nowProvider: () -> Long = { System.currentTimeMillis() },
+) : ReminderScheduler {
+
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+    ) : this(
+        context = context,
+        nowProvider = { System.currentTimeMillis() },
+    )
+
+    override fun canScheduleExactReminders(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        return alarmManager.canScheduleExactAlarms()
+    }
+
+    override fun schedule(request: ReminderRequest): ScheduledReminder {
+        val now = nowProvider()
+        val delayMillis = (request.triggerAtMillis - now).coerceAtLeast(MIN_DELAY_MILLIS)
+        if (request.exact) {
+            scheduleExactAlarm(request, delayMillis)
+        } else {
+            scheduleWork(request, delayMillis)
+        }
+        return ScheduledReminder(
+            id = request.id,
+            title = request.title,
+            triggerAtMillis = request.triggerAtMillis,
+            delayMillis = delayMillis,
+            exact = request.exact,
+        )
+    }
+
+    override fun cancel(reminderId: String) {
+        WorkManager.getInstance(context).cancelWorkById(java.util.UUID.fromString(reminderId))
+        cancelExactAlarm(reminderId)
+        AppLogger.info(LogTags.Reminder, "reminder_schedule_canceled", "reminderId" to reminderId)
+    }
+
+    private fun scheduleWork(request: ReminderRequest, delayMillis: Long) {
+        val work = OneTimeWorkRequestBuilder<ReminderNotificationWorker>()
+            .setId(java.util.UUID.fromString(request.id))
+            .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+            .setInputData(
+                Data.Builder()
+                    .putString(ReminderNotificationWorker.KEY_REMINDER_ID, request.id)
+                    .putString(ReminderNotificationWorker.KEY_TITLE, request.title)
+                    .putString(ReminderNotificationWorker.KEY_MESSAGE, request.message)
+                    .putLong(ReminderNotificationWorker.KEY_TRIGGER_AT, request.triggerAtMillis)
+                    .build()
+            )
+            .build()
+
+        WorkManager.getInstance(context).enqueue(work)
+        AppLogger.info(
+            LogTags.Reminder,
+            "reminder_work_enqueued",
+            "reminderId" to request.id,
+            "delayMillis" to delayMillis,
+            "triggerAtMillis" to request.triggerAtMillis,
+        )
+    }
+
+    private fun scheduleExactAlarm(request: ReminderRequest, delayMillis: Long) {
+        check(canScheduleExactReminders()) { "Exact alarm permission is not available" }
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            request.id.hashCode(),
+            Intent(context, ReminderAlarmReceiver::class.java).apply {
+                putExtra(ReminderAlarmReceiver.EXTRA_REMINDER_ID, request.id)
+                putExtra(ReminderAlarmReceiver.EXTRA_TITLE, request.title)
+                putExtra(ReminderAlarmReceiver.EXTRA_MESSAGE, request.message)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val triggerAt = request.triggerAtMillis.coerceAtLeast(System.currentTimeMillis() + MIN_DELAY_MILLIS)
+        // minSdk = 26, so AlarmManager.setExactAndAllowWhileIdle is always available.
+        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        AppLogger.info(
+            LogTags.Reminder,
+            "reminder_exact_alarm_scheduled",
+            "reminderId" to request.id,
+            "delayMillis" to delayMillis,
+            "triggerAtMillis" to triggerAt,
+        )
+    }
+
+    private fun cancelExactAlarm(reminderId: String) {
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            reminderId.hashCode(),
+            Intent(context, ReminderAlarmReceiver::class.java),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+    }
+
+    private companion object {
+        const val MIN_DELAY_MILLIS = 1_000L
+    }
+}

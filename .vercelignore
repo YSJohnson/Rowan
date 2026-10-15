@@ -1,0 +1,71 @@
+# Vercel 部署时排除 — 避免上传整个 Android 仓库
+# 注意：用精确文件路径，不用通配 app/、src/、test/ 等目录名，
+# 因为这些名字会和 web/apps/web/src/ 冲突
+
+# Android 根目录文件
+/gradlew
+/gradlew.bat
+/gradle.properties
+/settings.gradle.kts
+/local.properties
+/maven-metadata.xml
+/plugin-metadata.xml
+/Makefile
+
+# Android 项目目录（精确到仓库根）
+/gradle/
+/app/build.gradle.kts
+/app/proguard-rules.pro
+/app/schemas/
+/app/src/
+
+# IDE / 系统
+/.idea/
+/.kotlin/
+/.cxx/
+/.externalNativeBuild/
+/captures/
+/mobile/
+/.claude/
+/.playwright-mcp/
+/tmp-adb-screens/
+/tmp-adb-db/
+
+# 文档（Vercel 不需要，文档走 GitHub）
+/docs/
+/CHANGLOG.md
+/README.md
+/AGENTS.md
+/PROFILE
+
+# 临时文件 / 截图
+/error.log
+/full_log.txt
+/ui*.xml
+/*-metadata.xml
+/screenshot_*.png
+/screen_*.png
+/linear-hero.png
+/aura-p0-*.png
+/screenshot_release.png
+
+# Vercel / Node
+/.vercel/
+/node_modules/
+/.next/
+/.turbo/
+/out/
+/dist/
+/build/
+/*.tsbuildinfo
+/.env*.local
+/.env
+
+# 测试产物
+/app/build/
+/build/test-run.log
+/app/build/reports/
+/app/build/test-results/
+
+# 工具脚本（不需要部署）
+/scripts/

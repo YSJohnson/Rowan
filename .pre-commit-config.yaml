@@ -1,0 +1,31 @@
+default_install_hook_types:
+  - pre-commit
+  - pre-push
+  - commit-msg
+
+repos:
+  - repo: local
+    hooks:
+      - id: rowan-file-sanity
+        name: Rowan file sanity checks
+        entry: uv run python scripts/hooks/check_files.py
+        language: system
+        stages: [pre-commit]
+        pass_filenames: true
+
+      - id: rowan-commit-message
+        name: Rowan conventional commit message
+        entry: uv run python scripts/hooks/check_commit_msg.py
+        language: system
+        stages: [commit-msg]
+        pass_filenames: true
+
+      - id: rowan-unit-tests
+        name: Rowan Kotlin/Gradle compile check
+        # 只在改动 Kotlin / Gradle / KTS 时跑，避免 docs/web 改动误触发编译
+        # 改 docs/web 时直接跳过 — CI workflow 跑 build 是兜底，本地不再重复
+        entry: uv run python scripts/hooks/run_gradle.py cleanTestDebugUnitTest testDebugUnitTest --stacktrace
+        language: system
+        stages: [pre-commit]
+        files: '\.(kt|kts|gradle)$'
+        pass_filenames: false

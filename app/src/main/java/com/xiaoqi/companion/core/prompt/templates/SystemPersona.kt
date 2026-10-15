@@ -1,0 +1,93 @@
+package com.xiaoqi.companion.core.prompt.templates
+
+import android.content.Context
+import com.xiaoqi.companion.core.companion.ChatMode
+import com.xiaoqi.companion.core.prompt.PromptConfigLoader
+
+object SystemPersona {
+
+    var name: String = "Companion"
+        private set
+
+    var base: String = ""
+        private set
+
+    var emotionSectionTemplate: String = ""
+        private set
+
+    var relationshipSectionTemplate: String = ""
+        private set
+
+    var memorySectionTemplate: String = ""
+        private set
+
+    var locationSectionTemplate: String = ""
+        private set
+
+    var toolsSectionTemplate: String = ""
+        private set
+
+    private var listenModeSection: String = ChatModePrompts.LISTEN_SECTION
+
+    private var guideModeSection: String = ChatModePrompts.GUIDE_SECTION
+
+    var summariesTitle: String = "会话摘要"
+        private set
+
+    var recentTitle: String = "最近对话"
+        private set
+
+    var isInitialized: Boolean = false
+        private set
+
+    fun init(context: Context) {
+        val config = PromptConfigLoader.load(context)
+        // BuildConfig.BRAND_NAME 是 brand.properties 的单一真相，优先于 yml 的 name。
+        // 这样换品牌时只需改 brand.properties，prompt 自动跟随。
+        val effectiveName = com.xiaoqi.companion.BuildConfig.BRAND_NAME.takeIf { it.isNotBlank() }
+            ?: config.name
+        applyConfig(config.copy(name = effectiveName))
+    }
+
+    fun reload(context: Context) {
+        PromptConfigLoader.reload(context)
+        init(context)
+    }
+
+    internal fun initForTesting(config: com.xiaoqi.companion.core.prompt.PromptConfig) {
+        applyConfig(config)
+    }
+
+    /** 当前模式的 system prompt 段落；yml 未定义 `mode_listen` / `mode_guide` 时用内置文案。 */
+    fun modeSectionTemplate(mode: ChatMode): String = when (mode) {
+        ChatMode.LISTEN -> listenModeSection
+        ChatMode.GUIDE -> guideModeSection
+    }
+
+    private fun applyConfig(config: com.xiaoqi.companion.core.prompt.PromptConfig) {
+        name = config.name
+        base = config.base.replace("{{name}}", config.name)
+        emotionSectionTemplate = buildSectionRaw(config, "emotion")
+        relationshipSectionTemplate = buildSectionRaw(config, "relationship")
+        memorySectionTemplate = buildSectionRaw(config, "memory")
+        locationSectionTemplate = buildSectionRaw(config, "location")
+        toolsSectionTemplate = buildSectionRaw(config, "tools")
+        listenModeSection = buildSectionRaw(config, "mode_listen").ifBlank { ChatModePrompts.LISTEN_SECTION }
+        guideModeSection = buildSectionRaw(config, "mode_guide").ifBlank { ChatModePrompts.GUIDE_SECTION }
+        summariesTitle = config.sections["summaries"]?.title?.takeIf { it.isNotBlank() } ?: "会话摘要"
+        recentTitle = config.sections["recent"]?.title?.takeIf { it.isNotBlank() } ?: "最近对话"
+        isInitialized = true
+    }
+
+    private fun buildSectionRaw(config: com.xiaoqi.companion.core.prompt.PromptConfig, key: String): String {
+        val section = config.sections[key] ?: return ""
+        return buildString {
+            appendLine()
+            appendLine("## ${section.title}")
+            append(section.placeholder)
+        }
+    }
+
+    private fun renderSection(config: com.xiaoqi.companion.core.prompt.PromptConfig, key: String): String =
+        config.sections[key]?.render("") ?: ""
+}

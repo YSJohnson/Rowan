@@ -1,0 +1,108 @@
+# Built application
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+/release/
+
+# Gradle
+.gradle/
+.kotlin/
+build/
+local.properties
+
+# Signing
+*.jks
+*.keystore
+!debug.keystore
+keystore.properties
+
+# Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+/captures/
+.externalNativeBuild/
+.cxx/
+mobile/
+
+# Kotlin
+*.kotlin_module
+
+# Log
+*.log
+full_log.txt
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Environment
+.env
+*.env.local
+secrets.properties
+
+# Generated metadata files
+*-metadata.xml
+
+# Test results
+app/build/reports/
+app/build/test-results/
+build/test-run.log
+
+# Makefile generated screenshots
+screenshot_*.png
+screen_*.png
+
+# Website visual audit screenshots (Playwright fullPage, hero, zoomed, etc.)
+# 4.5MB/17 张，全是临时工作产物，不入库
+docs/plan/visual-audit-assets/
+
+# ADB debug screenshots / database dumps
+tmp-adb-screens/
+tmp-adb-db/
+
+# Font subsetting 中间产物 (原始 ttf 大、子集脚本本身可入库)
+# 子集后成品在 app/src/main/res/font/, 那个要入库
+tmp-fonts/*.ttf
+tmp-fonts/*.zip
+tmp-fonts/*.txt
+
+# Device/UI dumps
+ui*.xml
+
+PROFILE*
+
+# Auto-generated agent files
+AGENTS.md
+
+# Local assistant/tool state
+.claude/
+
+# JVM crash logs
+hs_err_pid*.log
+replay_pid*.log
+error.log
+
+# Playwright MCP
+.playwright-mcp/
+
+# Room schema (exported but tracked separately)
+# app/schemas/ is intentionally committed
+
+.vercel
+
+.vercel
