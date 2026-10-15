@@ -16,82 +16,40 @@ val MiSansFontFamily = FontFamily(
     Font(R.font.misans_semibold, FontWeight.SemiBold),
 )
 
+// 15 个 M3 档位全部显式定义：漏掉的档位会回落到 Material 默认（Roboto + 默认字重），
+// 中英混排时字号/字重会跳变。display 档用于首页问候语，body 档用于对话正文。
+private fun rowanText(
+    weight: FontWeight,
+    size: Int,
+    lineHeight: Int,
+    letterSpacing: Double = 0.0,
+) = TextStyle(
+    fontFamily = MiSansFontFamily,
+    fontWeight = weight,
+    fontSize = size.sp,
+    lineHeight = lineHeight.sp,
+    letterSpacing = letterSpacing.sp,
+)
+
 val CompanionTypography = Typography(
-    displayMedium = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 32.sp,
-        lineHeight = 38.sp,
-        letterSpacing = 0.sp,
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = 0.sp,
-    ),
-    titleLarge = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
-        letterSpacing = 0.sp,
-    ),
-    titleMedium = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.sp,
-    ),
-    titleSmall = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        letterSpacing = 0.sp,
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 17.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.sp,
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 23.sp,
-        letterSpacing = 0.sp,
-    ),
-    bodySmall = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.sp,
-    ),
-    labelLarge = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 15.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.sp,
-    ),
-    labelMedium = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.sp,
-    ),
-    labelSmall = TextStyle(
-        fontFamily = MiSansFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.sp,
-    ),
+    displayLarge = rowanText(FontWeight.SemiBold, 44, 52),
+    displayMedium = rowanText(FontWeight.SemiBold, 32, 40),
+    displaySmall = rowanText(FontWeight.SemiBold, 28, 36),
+
+    headlineLarge = rowanText(FontWeight.SemiBold, 26, 34),
+    headlineMedium = rowanText(FontWeight.Medium, 24, 32),
+    headlineSmall = rowanText(FontWeight.Medium, 22, 29),
+
+    titleLarge = rowanText(FontWeight.SemiBold, 19, 26),
+    titleMedium = rowanText(FontWeight.SemiBold, 17, 24),
+    titleSmall = rowanText(FontWeight.Medium, 15, 21),
+
+    // 正文行高比 Material 默认略松（23/16 ≈ 1.44），中文长段落读起来不挤。
+    bodyLarge = rowanText(FontWeight.Normal, 17, 25),
+    bodyMedium = rowanText(FontWeight.Normal, 16, 23),
+    bodySmall = rowanText(FontWeight.Normal, 14, 20),
+
+    labelLarge = rowanText(FontWeight.Medium, 15, 20),
+    labelMedium = rowanText(FontWeight.Medium, 13, 18, letterSpacing = 0.2),
+    labelSmall = rowanText(FontWeight.Medium, 12, 16, letterSpacing = 0.3),
 )

@@ -1,40 +1,36 @@
 package com.xiaoqi.companion.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.ReadOnlyComposable
 
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF4B647C),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFDDE7F2),
-    onPrimaryContainer = Color(0xFF152330),
-    secondary = Color(0xFF68707D),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE6EAF0),
-    tertiary = Color(0xFF6D6A85),
-    tertiaryContainer = Color(0xFFE9E7F2),
-    background = Color(0xFFF4F5F8),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFE9EDF2),
-    onSurface = Color(0xFF171B20),
-    onSurfaceVariant = Color(0xFF66707B),
-    outline = Color(0xFFD7DCE3),
-    outlineVariant = Color(0xFFE6EAF0),
-)
-
+/**
+ * 全局主题入口。
+ *
+ * 配色走 [RowanLightScheme] / [RowanDarkScheme]（品牌紫金，见 [RowanPalette]）；
+ * 形状、字体、间距分别由 [CompanionShapes] / [CompanionTypography] / [CompanionSpacing] 定义。
+ *
+ * [darkTheme] 默认 false —— 调用方从 DataStore 的 themeMode 解析后传入，SYSTEM 模式自行判断
+ * `isSystemInDarkTheme()`。默认值保证旧调用点 `CompanionTheme { ... }` 行为不变。
+ */
 @Composable
 fun CompanionTheme(
-    content: @Composable () -> Unit
+    darkTheme: Boolean = false,
+    content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(LocalCompanionSpacing provides CompanionSpacing()) {
         MaterialTheme(
-            colorScheme = LightColorScheme,
+            colorScheme = if (darkTheme) RowanDarkScheme else RowanLightScheme,
             typography = CompanionTypography,
             shapes = CompanionShapes,
             content = content,
         )
     }
 }
+
+/** 便捷读取间距 token：`RowanSpacing.lg`。 */
+val RowanSpacing: CompanionSpacing
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalCompanionSpacing.current

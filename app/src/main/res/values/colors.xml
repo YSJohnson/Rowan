@@ -8,4 +8,8 @@
     <color name="brand_rowan_violet">#7B6EF6</color>
     <color name="brand_rowan_gold">#C9A96E</color>
     <color name="brand_launcher_bg">#080808</color>
+
+    <!-- 窗口底色，必须与 Compose 侧 RowanLightScheme.background 一致：
+         冷启动到首帧之间系统先画 windowBackground，不一致会闪一下白。 -->
+    <color name="rowan_paper">#F7F5FB</color>
 </resources>

@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.Companion" parent="android:Theme.Material.Light.NoActionBar" />
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+      平台 Light 主题只负责冷启动到首帧之间那一帧。系统栏透明交给 Activity 的
+      enableEdgeToEdge()，这里补 windowBackground 避免白闪。
+      windowLightStatusBar / windowLightNavigationBar: 浅色纸面需要深色图标。
+      windowLightNavigationBar 是 API 27 属性，minSdk 26 上被系统忽略，故 tools:targetApi 抑制 lint。
+    -->
+    <style name="Theme.Companion" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/rowan_paper</item>
+        <item name="android:colorBackground">@color/rowan_paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+    </style>
 </resources>
