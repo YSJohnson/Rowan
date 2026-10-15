@@ -59,6 +59,7 @@ import com.xiaoqi.companion.ui.theme.ChatColors
 import com.xiaoqi.companion.ui.theme.ChatStatusColors
 import com.xiaoqi.companion.ui.theme.LocalCompanionSpacing
 import com.xiaoqi.companion.ui.theme.RowanPalette
+import com.xiaoqi.companion.ui.theme.rowanFilterChipColors
 
 @Composable
 fun MemoryRoomScreen(
@@ -276,12 +277,14 @@ private fun MemoryTypeFilters(
             selected = selectedType == null,
             onClick = { onSelectedTypeChanged(null) },
             label = { Text("全部") },
+            colors = rowanFilterChipColors(),
         )
         listOf("FACT", "EPISODE", "PROCEDURAL").forEach { type ->
             FilterChip(
                 selected = selectedType == type,
                 onClick = { onSelectedTypeChanged(type) },
                 label = { Text(type.memoryTypeLabel()) },
+                colors = rowanFilterChipColors(),
             )
         }
     }

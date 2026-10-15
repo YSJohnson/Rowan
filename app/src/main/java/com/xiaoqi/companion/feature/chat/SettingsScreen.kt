@@ -91,6 +91,7 @@ import com.xiaoqi.companion.ui.theme.ChatCardSurface
 import com.xiaoqi.companion.ui.theme.ChatStatusColors
 import com.xiaoqi.companion.ui.theme.LocalCompanionSpacing
 import com.xiaoqi.companion.ui.theme.RowanPalette
+import com.xiaoqi.companion.ui.theme.rowanFilterChipColors
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -676,6 +677,7 @@ private fun DreamLoopSection(
                         selected = current == interval,
                         onClick = { onIntervalChanged(interval) },
                         label = { Text(interval.label()) },
+                        colors = rowanFilterChipColors(),
                     )
                 }
             }
@@ -751,6 +753,7 @@ private fun PulseSection(
                         // 关掉总开关时档位灰置:此时间隔不生效,避免给出"改了就有用"的错觉
                         enabled = enabled,
                         label = { Text(pulseIntervalLabel(minutes)) },
+                        colors = rowanFilterChipColors(),
                     )
                 }
             }
@@ -773,6 +776,7 @@ private fun SettingsPagePicker(
                 selected = selectedPage == page,
                 onClick = { onSelectedPageChanged(page) },
                 label = { Text(page.label) },
+                colors = rowanFilterChipColors(),
             )
         }
     }
@@ -812,6 +816,7 @@ private fun ProviderPicker(
                 selected = provider == candidate,
                 onClick = { onProviderChanged(candidate) },
                 label = { Text(candidate.displayName()) },
+                colors = rowanFilterChipColors(),
             )
         }
     }
