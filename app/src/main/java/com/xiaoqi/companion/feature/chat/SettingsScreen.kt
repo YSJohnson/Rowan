@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,9 +15,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.animation.AnimatedContent
@@ -26,14 +29,19 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
@@ -58,10 +66,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,7 +85,6 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.launch
 import com.xiaoqi.companion.data.db.converter.LlmProvider
-import com.xiaoqi.companion.data.repository.DefaultLlmValues
 import com.xiaoqi.companion.ui.components.CompanionTopAppBar
 import com.xiaoqi.companion.ui.theme.ChatCardSurface
 import com.xiaoqi.companion.ui.theme.ChatStatusColors
@@ -95,6 +101,9 @@ internal data class SettingsScreenState(
     val toolSettings: ChatToolCapabilitySettings,
     val connectivityResult: ConnectivityResult?,
     val isCheckingConnectivity: Boolean,
+    val probedModels: List<String>,
+    val isProbingModels: Boolean,
+    val modelProbeMessage: String?,
     val dreamLoopInterval: DreamLoopInterval,
     val dreamRunState: DreamRunObserver.Snapshot,
     val lastDreamSuccessAtMs: Long,
@@ -113,6 +122,7 @@ internal data class SettingsScreenActions(
     val onBaseUrlChanged: (String) -> Unit,
     val onSave: () -> Unit,
     val onTestConnection: () -> Unit,
+    val onProbeModels: () -> Unit,
     val onDeviceStatusEnabledChanged: (Boolean) -> Unit,
     val onLocationContextEnabledChanged: (Boolean) -> Unit,
     val onWeatherContextEnabledChanged: (Boolean) -> Unit,
@@ -141,6 +151,7 @@ internal data class SettingsScreenActions(
             onBaseUrlChanged = viewModel::updateSettingsBaseUrl,
             onSave = viewModel::saveSettings,
             onTestConnection = viewModel::checkLlmConnectivity,
+            onProbeModels = viewModel::probeLlmModels,
             onDeviceStatusEnabledChanged = viewModel::setDeviceStatusContextEnabled,
             onLocationContextEnabledChanged = viewModel::setLocationContextEnabled,
             onWeatherContextEnabledChanged = viewModel::setWeatherContextEnabled,
@@ -211,6 +222,9 @@ fun SettingsScreen(
             toolSettings = uiState.toolCapabilitySettings,
             connectivityResult = uiState.connectivityResult,
             isCheckingConnectivity = uiState.isCheckingConnectivity,
+            probedModels = uiState.probedModels,
+            isProbingModels = uiState.isProbingModels,
+            modelProbeMessage = uiState.modelProbeMessage,
             dreamLoopInterval = dreamLoopInterval,
             dreamRunState = dreamRunState,
             lastDreamSuccessAtMs = lastDreamSuccessAtMs,
@@ -372,12 +386,14 @@ private fun LazyListScope.settingsModelPage(
                 provider = state.provider,
                 onProviderChanged = actions.onProviderChanged,
             )
-            Spacer(Modifier.height(8.dp))
-            SettingsFieldLabel("Model")
+            Spacer(Modifier.height(14.dp))
             ModelPicker(
-                provider = state.provider,
                 modelName = state.modelName,
+                probedModels = state.probedModels,
+                isProbing = state.isProbingModels,
+                probeMessage = state.modelProbeMessage,
                 onModelNameChanged = actions.onModelNameChanged,
+                onProbeModels = actions.onProbeModels,
             )
         }
     }
@@ -394,8 +410,17 @@ private fun LazyListScope.settingsModelPage(
                 onValueChange = actions.onBaseUrlChanged,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("接口地址") },
-                readOnly = state.provider != LlmProvider.OPENAI_COMPATIBLE,
+                readOnly = !state.provider.isCustomEndpoint,
                 singleLine = true,
+                supportingText = {
+                    Text(
+                        if (state.provider.isCustomEndpoint) {
+                            "自定义端点需要自己填完整地址，含 /v1 等版本段"
+                        } else {
+                            "${state.provider.displayName()} 的固定端点"
+                        }
+                    )
+                },
             )
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
@@ -405,8 +430,7 @@ private fun LazyListScope.settingsModelPage(
                 label = { Text("API Key") },
                 placeholder = { Text("保留当前密钥") },
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                supportingText = { Text("明文显示便于核对；仅存在本机 DataStore，不会上传") },
             )
             Spacer(Modifier.height(10.dp))
             ConnectivityCheckRow(
@@ -780,64 +804,104 @@ private fun ProviderPicker(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilterChip(
-            selected = provider == LlmProvider.GLM,
-            onClick = { onProviderChanged(LlmProvider.GLM) },
-            label = { Text("GLM") },
-        )
-        FilterChip(
-            selected = provider == LlmProvider.KIMI,
-            onClick = { onProviderChanged(LlmProvider.KIMI) },
-            label = { Text("Kimi") },
-        )
-        FilterChip(
-            selected = provider == LlmProvider.MODELSCOPE,
-            onClick = { onProviderChanged(LlmProvider.MODELSCOPE) },
-            label = { Text("ModelScope") },
-        )
-        FilterChip(
-            selected = provider == LlmProvider.OPENAI_COMPATIBLE,
-            onClick = { onProviderChanged(LlmProvider.OPENAI_COMPATIBLE) },
-            label = { Text("OpenAI 兼容") },
-        )
+        LlmProvider.entries.forEach { candidate ->
+            FilterChip(
+                selected = provider == candidate,
+                onClick = { onProviderChanged(candidate) },
+                label = { Text(candidate.displayName()) },
+            )
+        }
     }
 }
 
+/**
+ * 模型选择：可编辑输入框 + 下拉候选 + "探测模型"。
+ *
+ * 刻意不做成只读的下拉框 —— 探测依赖服务商是否实现 `/v1/models`，没实现的（部分 Anthropic
+ * 兼容端点）只能手填，输入框必须始终可编辑。
+ */
 @Composable
 private fun ModelPicker(
-    provider: LlmProvider,
     modelName: String,
+    probedModels: List<String>,
+    isProbing: Boolean,
+    probeMessage: String?,
     onModelNameChanged: (String) -> Unit,
+    onProbeModels: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (provider == LlmProvider.OPENAI_COMPATIBLE) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = modelName,
                 onValueChange = onModelNameChanged,
-                label = { Text("模型 ID") },
-                supportingText = { Text("填写服务商提供的模型名称") },
                 modifier = Modifier.fillMaxWidth(),
+                label = { Text("模型") },
                 singleLine = true,
+                trailingIcon = {
+                    IconButton(
+                        onClick = { expanded = true },
+                        enabled = probedModels.isNotEmpty(),
+                        modifier = Modifier.semantics { contentDescription = "选择探测到的模型" },
+                    ) {
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+                },
             )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier
+                    .heightIn(max = 320.dp)
+                    .widthIn(max = 320.dp),
+            ) {
+                probedModels.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = option,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        onClick = {
+                            onModelNameChanged(option)
+                            expanded = false
+                        },
+                    )
+                }
+            }
         }
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            DefaultLlmValues.modelOptions(provider).forEach { option ->
-                FilterChip(
-                    selected = modelName == option,
-                    onClick = { onModelNameChanged(option) },
-                    label = {
-                        Text(
-                            text = option,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
+            OutlinedButton(onClick = onProbeModels, enabled = !isProbing) {
+                if (isProbing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (isProbing) "探测中…" else "探测模型")
+            }
+            if (!isProbing && probedModels.isNotEmpty()) {
+                Text(
+                    text = "${probedModels.size} 个可选",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        probeMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

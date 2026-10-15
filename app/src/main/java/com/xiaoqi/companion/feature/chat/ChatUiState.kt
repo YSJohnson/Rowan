@@ -217,6 +217,14 @@ data class ChatUiState(
     val settingsModelName: String = DefaultLlmValues.GLM_MODEL,
     val settingsMessage: String? = null,
     /**
+     * "探测模型"拉到的清单。切换 Provider 时清空 —— 上家的模型 ID 对下家没有意义。
+     * 为空且不在探测中时，设置页提示用户手动填写模型名。
+     */
+    val probedModels: List<String> = emptyList(),
+    val isProbingModels: Boolean = false,
+    /** 探测结果的一次性文案（成功数 / 鉴权失败 / 不可达），成功后清空。 */
+    val modelProbeMessage: String? = null,
+    /**
      * 一次性"已清空"事件,清空 insights / memories / mood_snapshots 成功时写入
      * (timestamp, count) 元组。UI 用 [LaunchedEffect] 监听 timestamp 弹 snackbar;
      * count 用于文案 "已清空 N 条"。仅作信号用,不要按 timestamp 的值做业务判断。

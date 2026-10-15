@@ -13,6 +13,7 @@ import com.xiaoqi.companion.core.insight.InsightPrompts
 import com.xiaoqi.companion.core.logging.AppLogger
 import com.xiaoqi.companion.core.logging.LogTags
 import com.xiaoqi.companion.core.llm.ConnectivityResult
+import com.xiaoqi.companion.core.llm.ModelProbeResult
 import com.xiaoqi.companion.core.presence.PresenceController
 import com.xiaoqi.companion.core.presence.PresenceEvent
 import com.xiaoqi.companion.core.presence.PresenceInputs
@@ -648,6 +649,62 @@ class ChatViewModel @Inject constructor(
                             cause = e.message ?: e::class.simpleName.orEmpty(),
                         ),
                         isCheckingConnectivity = false,
+                    )
+                }
+            }
+        }
+    }
+
+    //endregion
+
+    /**
+     * 拉取当前服务商的真实模型清单，填进设置页的模型下拉框。
+     *
+     * 先落盘草稿再探测：探测要用用户刚敲进去的 Base URL / API Key，而
+     * `probeModels()` 读的是持久化配置（与 [checkLlmConnectivity] 同一套路）。
+     */
+    fun probeLlmModels() {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(isProbingModels = true, modelProbeMessage = null, probedModels = emptyList())
+            }
+            try {
+                settingsUseCase.saveSettings(_uiState.value, viewModelScope) { reducer -> _uiState.update(reducer) }
+                if (_uiState.value.settingsMessage != null) {
+                    _uiState.update { it.copy(isProbingModels = false) }
+                    return@launch
+                }
+                val result = configRepository.probeModels()
+                _uiState.update { state ->
+                    when (result) {
+                        is ModelProbeResult.Success -> state.copy(
+                            isProbingModels = false,
+                            probedModels = result.models,
+                            modelProbeMessage = if (result.models.isEmpty()) {
+                                "该服务商没有返回模型列表，请手动填写模型名"
+                            } else {
+                                "探测到 ${result.models.size} 个模型 · ${result.latencyMs} ms"
+                            },
+                        )
+                        is ModelProbeResult.AuthFailure -> state.copy(
+                            isProbingModels = false,
+                            probedModels = emptyList(),
+                            modelProbeMessage = "鉴权失败（HTTP ${result.statusCode}），请检查 API Key",
+                        )
+                        is ModelProbeResult.Unreachable -> state.copy(
+                            isProbingModels = false,
+                            probedModels = emptyList(),
+                            modelProbeMessage = "无法访问：${result.cause}",
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                AppLogger.error(LogTags.Config, e, "ui_llm_model_probe_failed")
+                _uiState.update {
+                    it.copy(
+                        isProbingModels = false,
+                        probedModels = emptyList(),
+                        modelProbeMessage = "探测失败：${e.message ?: e::class.simpleName.orEmpty()}",
                     )
                 }
             }

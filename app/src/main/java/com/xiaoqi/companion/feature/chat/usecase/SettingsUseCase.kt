@@ -70,6 +70,9 @@ class SettingsUseCase @Inject constructor(
                 settingsModelName = defaultModel,
                 settingsBaseUrl = defaultBaseUrl(value),
                 settingsMessage = null,
+                // 上家探测到的模型 ID 对下家没有意义，切换即作废
+                probedModels = emptyList(),
+                modelProbeMessage = null,
             )
         }
         // 切换 provider 后加载该 provider 已保存的 key
@@ -100,11 +103,9 @@ class SettingsUseCase @Inject constructor(
         update: (ChatUiState.() -> ChatUiState) -> Unit,
     ) {
         val provider = state.settingsProvider
-        val custom = provider == LlmProvider.OPENAI_COMPATIBLE
-        val model = state.settingsModelName.trim().let { value ->
-            if (custom) value else value.takeIf { it in DefaultLlmValues.modelOptions(provider) }
-                ?: DefaultLlmValues.defaultModel(provider)
-        }
+        val custom = provider.isCustomEndpoint
+        // 模型名不再做白名单校验：探测出来的模型 ID 是动态的，任何非空值都必须能被保存。
+        val model = state.settingsModelName.trim().ifBlank { DefaultLlmValues.defaultModel(provider) }
         val baseUrl = if (custom) state.settingsBaseUrl.trim() else DefaultLlmValues.defaultBaseUrl(provider)
         if (model.isBlank()) {
             update { copy(settingsMessage = "模型名称不能为空") }

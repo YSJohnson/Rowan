@@ -3,6 +3,7 @@ package com.xiaoqi.companion.feature.chat
 import app.cash.turbine.test
 import com.xiaoqi.companion.core.companion.model.ToolCallStatus
 import com.xiaoqi.companion.core.insight.CloudInsightExecutor
+import com.xiaoqi.companion.core.llm.ModelProbeResult
 import com.xiaoqi.companion.core.presence.PresenceController
 import com.xiaoqi.companion.core.presence.PresenceMode
 import com.xiaoqi.companion.core.presence.PresenceReaction
@@ -512,6 +513,50 @@ class ChatViewModelTest {
 
         viewModel.consumeScrollTarget()
         assertNull(viewModel.uiState.value.pendingScrollTargetId)
+    }
+
+    @Test
+    fun `probeLlmModels success publishes models and count message`() = runTest {
+        coEvery { configRepo.probeModels() } returns ModelProbeResult.Success(
+            models = listOf("deepseek-chat", "deepseek-reasoner"),
+            latencyMs = 42L,
+        )
+
+        viewModel.probeLlmModels()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("deepseek-chat", "deepseek-reasoner"), state.probedModels)
+        assertFalse(state.isProbingModels)
+        assertTrue(state.modelProbeMessage.orEmpty().contains("2 个模型"))
+    }
+
+    @Test
+    fun `probeLlmModels auth failure clears models and surfaces status code`() = runTest {
+        coEvery { configRepo.probeModels() } returns ModelProbeResult.AuthFailure(statusCode = 401)
+
+        viewModel.probeLlmModels()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.probedModels.isEmpty())
+        assertFalse(state.isProbingModels)
+        assertTrue(state.modelProbeMessage.orEmpty().contains("401"))
+    }
+
+    @Test
+    fun `probeLlmModels reachable endpoint without model list asks user to fill manually`() = runTest {
+        coEvery { configRepo.probeModels() } returns ModelProbeResult.Success(
+            models = emptyList(),
+            latencyMs = 12L,
+        )
+
+        viewModel.probeLlmModels()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.probedModels.isEmpty())
+        assertTrue(state.modelProbeMessage.orEmpty().contains("手动填写"))
     }
 
     private fun toolCallSnapshot(
