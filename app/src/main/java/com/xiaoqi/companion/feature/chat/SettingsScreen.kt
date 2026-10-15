@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,6 +90,7 @@ import com.xiaoqi.companion.ui.components.CompanionTopAppBar
 import com.xiaoqi.companion.ui.theme.ChatCardSurface
 import com.xiaoqi.companion.ui.theme.ChatStatusColors
 import com.xiaoqi.companion.ui.theme.LocalCompanionSpacing
+import com.xiaoqi.companion.ui.theme.RowanPalette
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -298,7 +300,8 @@ private fun SettingsScreenContent(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.background(RowanPalette.ambientBackdrop(MaterialTheme.colorScheme)),
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CompanionTopAppBar(

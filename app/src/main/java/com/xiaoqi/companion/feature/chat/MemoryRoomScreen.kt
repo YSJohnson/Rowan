@@ -1,5 +1,6 @@
 package com.xiaoqi.companion.feature.chat
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +58,7 @@ import com.xiaoqi.companion.ui.components.CompanionTopAppBar
 import com.xiaoqi.companion.ui.theme.ChatColors
 import com.xiaoqi.companion.ui.theme.ChatStatusColors
 import com.xiaoqi.companion.ui.theme.LocalCompanionSpacing
+import com.xiaoqi.companion.ui.theme.RowanPalette
 
 @Composable
 fun MemoryRoomScreen(
@@ -97,7 +99,8 @@ private fun MemoryRoomScreenContent(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.background(RowanPalette.ambientBackdrop(MaterialTheme.colorScheme)),
+        containerColor = Color.Transparent,
         topBar = {
             CompanionTopAppBar(
                 title = "记忆房间",
