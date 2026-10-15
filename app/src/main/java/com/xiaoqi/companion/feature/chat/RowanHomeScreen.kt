@@ -5,9 +5,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,16 +19,16 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -232,11 +232,9 @@ private fun RowanHomeContent(
                         palette = presenceColors,
                         onPresenceTapped = onPresenceTapped,
                         onOpenChat = onOpenChat,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 280.dp),
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(20.dp))
                 }
                 val taskSummary = uiState.longTasks.activeSummary()
                 if (taskSummary.hasActiveTasks) {
@@ -342,7 +340,9 @@ private fun HomeTopBar(
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = BuildConfig.BRAND_NAME,
-                style = MaterialTheme.typography.displayMedium.copy(
+                // 原来用 displayMedium(32sp) 和两个 48dp 圆钮并排，字重和体量都压过右侧图标，
+                // 一行里两个视觉中心。收到 headlineMedium 让顶栏整体读作一条。
+                style = MaterialTheme.typography.headlineMedium.copy(
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Normal,
                     letterSpacing = 0.sp,
@@ -381,9 +381,12 @@ private fun HomeTopActionIcon(
         state = rememberTooltipState(),
     ) {
         Surface(
-            shape = androidx.compose.foundation.shape.CircleShape,
-            color = Color.White.copy(alpha = 0.52f),
-            shadowElevation = 2.dp,
+            shape = CircleShape,
+            // 原来是 Color.White(0.52) 的裸白圆钮，压在紫调纸面上会读成"灰底上的白块"。
+            // 改成和卡片同一套：白底 + 一根几乎看不见的描边。
+            color = ChatColors.CardSurface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shadowElevation = 0.dp,
             tonalElevation = 0.dp,
         ) {
             IconButton(onClick = onClick) {
@@ -406,17 +409,15 @@ private fun PresenceStage(
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier) {
-        val stageHeight = (maxHeight * 0.56f).coerceIn(260.dp, 360.dp)
-        val avatarSize = (stageHeight * 0.52f).coerceIn(140.dp, 200.dp)
+        // 尺寸随内容走。旧实现取 maxHeight 的 56%（长屏上顶到 360dp 的上限），hero 把下面的
+        // 情绪趋势和洞察卡全挤出首屏；头像改用屏宽定尺，窄屏也不会溢出。
+        val avatarSize = (maxWidth * 0.42f).coerceIn(132.dp, 176.dp)
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(stageHeight),
+                modifier = Modifier.size(avatarSize + 72.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 PresenceBackdropAndHalo(
@@ -457,34 +458,35 @@ private fun PresenceStage(
                         .clickable(onClick = onOpenChat),
                 )
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(18.dp))
+            // 主页的主行动按钮。原来是一枚 Color.White(0.72) 的半透明胶囊，在紫调纸面上
+            // 读成"白框压在灰底上"；改成品牌实心紫，既是唯一焦点，也不再和背景打架。
             Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Color.White.copy(alpha = 0.72f),
-                shadowElevation = 1.dp,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                shadowElevation = 2.dp,
                 tonalElevation = 0.dp,
-                modifier = Modifier
-                    .clickable(onClick = onOpenChat),
+                modifier = Modifier.clickable(onClick = onOpenChat),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Chat,
+                        imageVector = Icons.AutoMirrored.Filled.Chat,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                     )
                     Text(
                         text = "和 Rowan 聊聊",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                        tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                     )
                 }
             }
