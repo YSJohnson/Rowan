@@ -302,15 +302,6 @@ class ChatViewModel @Inject constructor(
                     }
 
                     val visibleCalls = calls.take(RECENT_TOOL_CALL_LIMIT).map { it.toUiCall() }
-                    val mapCalls = calls.asSequence()
-                        .filter { snap ->
-                            val name = snap.toolName.lowercase()
-                            "maps_" in name || "amap" in name
-                        }
-                        .map { it.toUiCall() }
-                        .filter { it.mapInteraction != null }
-                        .take(RECENT_MAP_TOOL_CALL_LIMIT)
-                        .toList()
                     val previousLatest = state.toolCalls.firstOrNull()
                     val nextLatest = visibleCalls.firstOrNull()
                     val reaction = nextLatest
@@ -329,7 +320,6 @@ class ChatViewModel @Inject constructor(
                     shouldClearReaction = acceptedReaction != null
                     state.copy(
                         toolCalls = visibleCalls,
-                        mapToolCalls = mapCalls,
                         presenceReaction = acceptedReaction ?: state.presenceReaction,
                     )
                 }
@@ -764,7 +754,7 @@ class ChatViewModel @Inject constructor(
             val conversation = conversationRepository.createNew()
             appPreferences.setCurrentSessionId(conversation.id)
             _uiState.update {
-                it.copy(messages = emptyList(), toolCalls = emptyList(), mapToolCalls = emptyList())
+                it.copy(messages = emptyList(), toolCalls = emptyList())
             }
         }
     }
@@ -777,7 +767,6 @@ class ChatViewModel @Inject constructor(
                 it.copy(
                     messages = emptyList(),
                     toolCalls = emptyList(),
-                    mapToolCalls = emptyList(),
                     isLoading = false,
                 )
             }
@@ -1369,7 +1358,6 @@ class ChatViewModel @Inject constructor(
         // 8 条窗口覆盖复合工具时间线的 detail 反查(3 条在多工具轮次里不够)
         private const val RECENT_TOOL_CALL_LIMIT = 8
         private const val MESSAGE_SEARCH_LIMIT = 30
-        private const val RECENT_MAP_TOOL_CALL_LIMIT = 64
         private const val INSIGHT_CARD_LIMIT = 3
         private const val MUTE_DAY_MS = 24L * 60L * 60L * 1000L
         // 话题相似度只看最近几轮：窗口再大就把无关旧话题也算进"同一件事"

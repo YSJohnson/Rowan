@@ -377,25 +377,16 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun init_retainsMapCallsOutsideRecentToolWindow() = runTest {
-        toolCallRepository.calls.value = listOf(
-            toolCallSnapshot("1", "search_memory", ToolCallStatus.SUCCEEDED),
-            toolCallSnapshot("2", "update_mood", ToolCallStatus.SUCCEEDED),
-            toolCallSnapshot("3", "update_relationship", ToolCallStatus.SUCCEEDED),
-            toolCallSnapshot(
-                id = "map-4",
-                toolName = "maps_geo",
-                status = ToolCallStatus.SUCCEEDED,
-                completedAt = 1_100L,
-                argumentsJson = """{"address":"West Lake"}""",
-                resultJson = """{"results":[{"location":"120.13,30.25","city":"Hangzhou"}]}""",
-            ),
-        )
+    fun init_keepsOnlyRecentToolCallWindow() = runTest {
+        toolCallRepository.calls.value = (1..10).map { index ->
+            toolCallSnapshot("$index", "search_memory", ToolCallStatus.SUCCEEDED)
+        }
         advanceUntilIdle()
 
-        // RECENT_TOOL_CALL_LIMIT=8,窗口内全保留;map 调用额外进 mapToolCalls
-        assertEquals(4, viewModel.uiState.value.toolCalls.size)
-        assertEquals(listOf("map-4"), viewModel.uiState.value.mapToolCalls.map { it.id })
+        val calls = viewModel.uiState.value.toolCalls
+        // RECENT_TOOL_CALL_LIMIT=8,窗口外的旧调用被丢弃
+        assertEquals(8, calls.size)
+        assertEquals((1..8).map(Int::toString), calls.map { it.id })
     }
 
     @Test

@@ -80,7 +80,6 @@ data class ChatToolCall(
     val durationMs: Long? = null,
     val completedAt: Long? = null,
     val errorMessage: String? = null,
-    val mapInteraction: com.xiaoqi.companion.feature.chat.map.MapToolInteraction? = null,
     /**
      * 工具结果的结构化摘要,供 detail panel 渲染。
      * - STARTED 时为 null(还没结果)
@@ -189,8 +188,6 @@ data class ChatPermissionPrompt(
 data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val toolCalls: List<ChatToolCall> = emptyList(),
-    /** 独立保留地图产物，避免复合任务把历史卡片挤出最近工具窗口。 */
-    val mapToolCalls: List<ChatToolCall> = emptyList(),
     val memories: List<ChatMemory> = emptyList(),
     val reminders: List<ChatReminder> = emptyList(),
     val longTasks: List<AgentLongTask> = emptyList(),
