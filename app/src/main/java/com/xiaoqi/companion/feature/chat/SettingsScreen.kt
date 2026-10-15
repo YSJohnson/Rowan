@@ -1,7 +1,10 @@
 package com.xiaoqi.companion.feature.chat
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -23,11 +26,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -273,7 +271,6 @@ private fun SettingsScreenContent(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var hasConsumedInitialDreamState by remember { mutableStateOf(false) }
-    var selectedPage by remember { mutableStateOf(SettingsPage.MODEL) }
     val spacing = LocalCompanionSpacing.current
 
     // 清空类操作完成时弹一次 snackbar:用 dataJustClearedAt 时间戳当 key,避免 count
@@ -321,77 +318,57 @@ private fun SettingsScreenContent(
                 navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
                 navigationContentDescription = "返回",
                 onNavigationClick = actions.onBack,
-                actionText = "保存",
-                onActionClick = actions.onSave,
             )
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(spacing.section),
+                .padding(padding),
         ) {
-            SettingsPagePicker(
-                selectedPage = selectedPage,
-                onSelectedPageChanged = { selectedPage = it },
-            )
+            // 保存/测试的反馈钉在列表外：模型卡片滚出屏幕后也要看得见
             state.message?.let {
                 Text(
                     text = it,
+                    modifier = Modifier.padding(
+                        start = spacing.lg,
+                        end = spacing.lg,
+                        top = spacing.lg,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            AnimatedContent(
-                modifier = Modifier.weight(1f, fill = true),
-                targetState = selectedPage,
-                transitionSpec = {
-                    fadeIn(tween(RowanMotion.MediumMs)) togetherWith fadeOut(tween(RowanMotion.ShortMs))
-                },
-                label = "settings-page",
-            ) { page ->
-                when (page) {
-                    SettingsPage.MODEL -> SettingsPageContent { settingsModelPage(state, actions) }
-                    SettingsPage.CAPABILITIES -> SettingsPageContent { settingsCapabilitiesPage(state, actions) }
-                    SettingsPage.SYSTEM -> SettingsPageContent { settingsSystemPage(state, actions) }
-                }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = spacing.lg,
+                    end = spacing.lg,
+                    top = spacing.lg,
+                    bottom = spacing.section,
+                ),
+                verticalArrangement = Arrangement.spacedBy(spacing.section),
+            ) {
+                settingsContent(state = state, actions = actions)
             }
         }
     }
 }
 
-@Composable
-private fun SettingsPageContent(content: LazyListScope.() -> Unit) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(LocalCompanionSpacing.current.section),
-        contentPadding = PaddingValues(bottom = LocalCompanionSpacing.current.section),
-    ) {
-        content()
-    }
-}
-
-private enum class SettingsPage(
-    val label: String,
-) {
-    MODEL("模型"),
-    CAPABILITIES("能力"),
-    SYSTEM("系统"),
-}
-
-private fun LazyListScope.settingsModelPage(
+/**
+ * 设置页的全部内容：单页顺序排布，分组顺序 = 从最常改到最少改。
+ *
+ * 联网搜索必须紧跟对话模型，因为它的后端复用对话模型那份密钥；分页时这层依赖看不见，
+ * 用 DeepSeek 对话、搜索却留在智谱的用户只会看到"搜索失败"，不知道去哪里改。
+ */
+private fun LazyListScope.settingsContent(
     state: SettingsScreenState,
     actions: SettingsScreenActions,
 ) {
     item {
-        ModelSummaryCard(state = state)
-    }
-    item {
         SettingsSectionTitle(
-            title = "当前引擎",
-            subtitle = "选择主对话使用的 Provider 与模型",
+            title = "对话模型",
+            subtitle = "当前 ${state.provider.displayName()} · ${state.modelName}；改完点卡片里的「保存」生效",
         )
     }
     item {
@@ -410,16 +387,7 @@ private fun LazyListScope.settingsModelPage(
                 onModelNameChanged = actions.onModelNameChanged,
                 onProbeModels = actions.onProbeModels,
             )
-        }
-    }
-    item {
-        SettingsSectionTitle(
-            title = "云端接入",
-            subtitle = "填写配置后点击保存或测试连接",
-        )
-    }
-    item {
-        SettingsGroupCard {
+            Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = state.baseUrl,
                 onValueChange = actions.onBaseUrlChanged,
@@ -448,81 +416,56 @@ private fun LazyListScope.settingsModelPage(
                 supportingText = { Text("明文显示便于核对；仅存在本机 DataStore，不会上传") },
             )
             Spacer(Modifier.height(10.dp))
-            ConnectivityCheckRow(
+            ModelConfigActions(
                 result = state.connectivityResult,
                 isChecking = state.isCheckingConnectivity,
                 onTest = actions.onTestConnection,
+                onSave = actions.onSave,
             )
         }
     }
-}
 
-@Composable
-private fun ModelSummaryCard(state: SettingsScreenState) {
-    ChatCardSurface {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = "当前：${state.provider.name} · ${state.modelName}",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            val statusText = when {
-                state.isCheckingConnectivity -> "正在测试连接"
-                else -> state.connectivityResult.summaryLabel()
-            }
-            SettingsMetaRow(
-                label = "状态",
-                value = statusText,
-            )
-            SettingsMetaRow(
-                label = "说明",
-                value = "主对话与后台任务都走这份云端配置",
-            )
-        }
-    }
-}
-
-@Composable
-private fun SettingsFieldLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-@Composable
-private fun SettingsMetaRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(56.dp),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-private fun LazyListScope.settingsCapabilitiesPage(
-    state: SettingsScreenState,
-    actions: SettingsScreenActions,
-) {
     item {
         SettingsSectionTitle(
-            title = "基础能力",
+            title = "联网搜索",
+            subtitle = "Rowan 觉得需要最新信息时会自己调用，不用你手动触发",
+        )
+    }
+    item {
+        SettingsGroupCard {
+            SettingsToggleRow(
+                title = "联网搜索",
+                detail = "Rowan 觉得需要时自己上网查",
+                meta = "需联网",
+                metaIcon = Icons.Outlined.Wifi,
+                checked = state.toolSettings.webSearchEnabled,
+                onCheckedChange = actions.onWebSearchEnabledChanged,
+            )
+            DividerSpacer()
+            SettingsFieldLabel("搜索后端")
+            WebSearchBackendPicker(
+                backend = state.webSearchBackend,
+                onBackendChanged = actions.onWebSearchBackendChanged,
+            )
+            Spacer(Modifier.height(10.dp))
+            if (state.webSearchBackend.usesDedicatedKey) {
+                WebSearchKeyField(
+                    backend = state.webSearchBackend,
+                    savedKey = state.webSearchApiKey,
+                    onSave = actions.onWebSearchApiKeySaved,
+                )
+            } else {
+                WebSearchKeyHint(
+                    backend = state.webSearchBackend,
+                    provider = state.provider,
+                )
+            }
+        }
+    }
+
+    item {
+        SettingsSectionTitle(
+            title = "工具能力",
             subtitle = "这些开关控制 Rowan 可读取的环境上下文与工具",
         )
     }
@@ -581,15 +524,6 @@ private fun LazyListScope.settingsCapabilitiesPage(
             )
             DividerSpacer()
             SettingsToggleRow(
-                title = "联网搜索",
-                detail = "Rowan 觉得需要时自己上网查",
-                meta = "需联网",
-                metaIcon = Icons.Outlined.Wifi,
-                checked = state.toolSettings.webSearchEnabled,
-                onCheckedChange = actions.onWebSearchEnabledChanged,
-            )
-            DividerSpacer()
-            SettingsToggleRow(
                 title = "上下文",
                 detail = "时间与近期对话",
                 meta = "固定开启",
@@ -598,63 +532,34 @@ private fun LazyListScope.settingsCapabilitiesPage(
                 locked = true,
                 onCheckedChange = {},
             )
-        }
-    }
-    item {
-        SettingsSectionTitle(
-            title = "联网搜索",
-            subtitle = "Rowan 觉得需要最新信息时会自己调用，不用你手动触发",
-        )
-    }
-    item {
-        SettingsGroupCard {
-            WebSearchBackendPicker(
-                backend = state.webSearchBackend,
-                onBackendChanged = actions.onWebSearchBackendChanged,
-            )
-            Spacer(Modifier.height(10.dp))
-            if (state.webSearchBackend == WebSearchBackend.GLM) {
-                Text(
-                    text = "用「云端接入」里已经填好的 GLM 密钥，不必再申请一个服务。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                WebSearchKeyField(
-                    backend = state.webSearchBackend,
-                    savedKey = state.webSearchApiKey,
-                    onSave = actions.onWebSearchApiKeySaved,
-                )
+            DividerSpacer()
+            // 开关只管"允许读"：系统权限没授予时位置/通知照样拿不到，所以给一个直达系统设置的入口
+            val context = LocalContext.current
+            OutlinedButton(
+                onClick = {
+                    val intent = Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", context.packageName, null),
+                    )
+                    runCatching { context.startActivity(intent) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Outlined.Lock, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("授予位置 / 通知权限（跳转系统设置）")
             }
         }
     }
-    item {
-        // 位置/通知权限入口：之前「位置」开关只是 toggle，没有请求/跳转入口，
-        // 导致权限没授予时位置拿不到。这里直接跳系统「应用详情 → 权限」页让用户开位置。
-        val context = androidx.compose.ui.platform.LocalContext.current
-        OutlinedButton(
-            onClick = {
-                val intent = android.content.Intent(
-                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    android.net.Uri.fromParts("package", context.packageName, null),
-                )
-                runCatching { context.startActivity(intent) }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Icon(Icons.Outlined.Lock, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("授予位置 / 通知权限（跳转系统设置）")
-        }
-    }
-}
 
-private fun LazyListScope.settingsSystemPage(
-    state: SettingsScreenState,
-    actions: SettingsScreenActions,
-) {
     item {
-        DreamLoopSection(
+        SettingsSectionTitle(
+            title = "后台与主动关怀",
+            subtitle = "后台觉察按间隔整理近期状态；主动关怀只在情绪持续不好时出现，不会定时打扰",
+        )
+    }
+    item {
+        DreamLoopCard(
             current = state.dreamLoopInterval,
             runState = state.dreamRunState,
             lastSuccessAtMs = state.lastDreamSuccessAtMs,
@@ -664,41 +569,81 @@ private fun LazyListScope.settingsSystemPage(
         )
     }
     item {
-        PulseSection(
+        PulseCard(
             enabled = state.pulseEnabled,
             intervalMinutes = state.pulseIntervalMinutes,
             onEnabledChanged = actions.onPulseEnabledChanged,
             onIntervalChanged = actions.onPulseIntervalChanged,
         )
     }
+
+    item {
+        SettingsSectionTitle(
+            title = "数据与透明度",
+            subtitle = "本地存储，可查可改可删",
+        )
+    }
     item {
         DataTransparencySection(viewModel = actions.viewModel)
     }
+
     item {
-        DebugDiagnosticsSection()
+        SettingsSectionTitle(
+            title = "关于",
+            subtitle = "版本与素材声明",
+        )
     }
     item {
         AboutSection()
+    }
+
+    // 仅 Debug 包有内容（release 是空实现），排最后，不挤占真正会改的设置
+    item {
+        DebugDiagnosticsSection()
+    }
+}
+
+@Composable
+private fun SettingsFieldLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun SettingsMetaRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(56.dp),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
 @Composable
 private fun AboutSection() {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        SettingsSectionTitle(
-            title = "关于",
-            subtitle = "版本与素材声明",
-        )
-        Text(
-            text = stringResource(R.string.font_credit_misans),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    Text(
+        text = stringResource(R.string.font_credit_misans),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
-private fun DreamLoopSection(
+private fun DreamLoopCard(
     current: DreamLoopInterval,
     runState: DreamRunObserver.Snapshot,
     lastSuccessAtMs: Long,
@@ -706,54 +651,49 @@ private fun DreamLoopSection(
     onIntervalChanged: (DreamLoopInterval) -> Unit,
     onTriggerNow: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsSectionTitle(
-            title = "后台觉察",
-            subtitle = "Rowan 会在后台按固定间隔整理近期状态",
+    SettingsGroupCard {
+        SettingsFieldLabel("后台觉察")
+        SettingsMetaRow(
+            label = "间隔",
+            value = current.label(),
         )
-        SettingsGroupCard {
-            SettingsMetaRow(
-                label = "间隔",
-                value = current.label(),
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                DreamLoopInterval.entries.forEach { interval ->
-                    FilterChip(
-                        selected = current == interval,
-                        onClick = { onIntervalChanged(interval) },
-                        label = { Text(interval.label()) },
-                        colors = rowanFilterChipColors(),
-                    )
-                }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DreamLoopInterval.entries.forEach { interval ->
+                FilterChip(
+                    selected = current == interval,
+                    onClick = { onIntervalChanged(interval) },
+                    label = { Text(interval.label()) },
+                    colors = rowanFilterChipColors(),
+                )
             }
-            Text(
-                text = when (runState.status) {
-                    DreamRunObserver.Status.IDLE -> "待命中"
-                    DreamRunObserver.Status.QUEUED -> "已排队"
-                    DreamRunObserver.Status.RUNNING -> "运行中"
-                    DreamRunObserver.Status.SUCCEEDED -> {
-                        if (runState.savedCount > 0) {
-                            "已完成 · 新增 ${runState.savedCount} 条"
-                        } else {
-                            "已完成"
-                        }
+        }
+        Text(
+            text = when (runState.status) {
+                DreamRunObserver.Status.IDLE -> "待命中"
+                DreamRunObserver.Status.QUEUED -> "已排队"
+                DreamRunObserver.Status.RUNNING -> "运行中"
+                DreamRunObserver.Status.SUCCEEDED -> {
+                    if (runState.savedCount > 0) {
+                        "已完成 · 新增 ${runState.savedCount} 条"
+                    } else {
+                        "已完成"
                     }
-                    DreamRunObserver.Status.FAILED -> "失败"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = lastDreamRunLabel(lastSuccessAtMs, lastSuccessSavedCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Button(onClick = onTriggerNow) {
-                Text(stringResource(R.string.dream_loop_trigger_now))
-            }
+                }
+                DreamRunObserver.Status.FAILED -> "失败"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = lastDreamRunLabel(lastSuccessAtMs, lastSuccessSavedCount),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(onClick = onTriggerNow) {
+            Text(stringResource(R.string.dream_loop_trigger_now))
         }
     }
 }
@@ -770,62 +710,36 @@ private val PulseIntervalMinutes = listOf(60, 120, PulsePreferences.DEFAULT_INTE
 private fun pulseIntervalLabel(minutes: Int): String = "${minutes / 60} 小时"
 
 @Composable
-private fun PulseSection(
+private fun PulseCard(
     enabled: Boolean,
     intervalMinutes: Int,
     onEnabledChanged: (Boolean) -> Unit,
     onIntervalChanged: (Int) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsSectionTitle(
-            title = "主动关怀",
-            subtitle = "只在情绪持续不好时才会出现，不会定时打扰",
+    SettingsGroupCard {
+        SettingsFieldLabel("主动关怀")
+        SettingsToggleRow(
+            title = "情绪不好时主动关心",
+            detail = "只在情绪持续不好时才出现；关闭后 Rowan 不会主动发消息，仍可以随时找它聊",
+            meta = "",
+            checked = enabled,
+            onCheckedChange = onEnabledChanged,
         )
-        SettingsGroupCard {
-            SettingsToggleRow(
-                title = "情绪不好时主动关心",
-                detail = "关闭后 Rowan 不会主动发消息，仍可以随时找它聊",
-                meta = "",
-                checked = enabled,
-                onCheckedChange = onEnabledChanged,
-            )
-            SettingsMetaRow(label = "间隔", value = pulseIntervalLabel(intervalMinutes))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                PulseIntervalMinutes.forEach { minutes ->
-                    FilterChip(
-                        selected = intervalMinutes == minutes,
-                        onClick = { onIntervalChanged(minutes) },
-                        // 关掉总开关时档位灰置:此时间隔不生效,避免给出"改了就有用"的错觉
-                        enabled = enabled,
-                        label = { Text(pulseIntervalLabel(minutes)) },
-                        colors = rowanFilterChipColors(),
-                    )
-                }
+        SettingsMetaRow(label = "间隔", value = pulseIntervalLabel(intervalMinutes))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PulseIntervalMinutes.forEach { minutes ->
+                FilterChip(
+                    selected = intervalMinutes == minutes,
+                    onClick = { onIntervalChanged(minutes) },
+                    // 关掉总开关时档位灰置:此时间隔不生效,避免给出"改了就有用"的错觉
+                    enabled = enabled,
+                    label = { Text(pulseIntervalLabel(minutes)) },
+                    colors = rowanFilterChipColors(),
+                )
             }
-        }
-    }
-}
-
-@Composable
-private fun SettingsPagePicker(
-    selectedPage: SettingsPage,
-    onSelectedPageChanged: (SettingsPage) -> Unit,
-) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        SettingsPage.entries.forEach { page ->
-            FilterChip(
-                selected = selectedPage == page,
-                onClick = { onSelectedPageChanged(page) },
-                label = { Text(page.label) },
-                colors = rowanFilterChipColors(),
-            )
         }
     }
 }
@@ -868,6 +782,38 @@ private fun WebSearchBackendPicker(
             )
         }
     }
+}
+
+/**
+ * 智谱后端不收独立密钥，而是复用「对话模型」那份 —— 这层依赖必须写出来：
+ * 只有需要独立密钥的后端才渲染输入框；其余三个（自动/智谱/必应）在这里说明密钥从哪来。
+ *
+ * 智谱那条要按用户当前的对话 Provider 动态措辞：用户把对话模型换成别家之后，搜索其实是在拿
+ * 别家的密钥请求智谱，只会拿到鉴权失败 —— 这正是本次用户报障的原因，必须当场说清怎么改。
+ */
+@Composable
+private fun WebSearchKeyHint(backend: WebSearchBackend, provider: LlmProvider) {
+    Text(
+        text = when (backend) {
+            WebSearchBackend.AUTO ->
+                "自动挑选：优先用已填密钥的后端，都没有就用免密钥的必应。现在不用配任何东西也能搜。"
+            WebSearchBackend.GLM ->
+                if (provider == LlmProvider.GLM) {
+                    "这里用的就是「对话模型」里填的智谱密钥，不用再申请一个服务。"
+                } else {
+                    "这里的密钥与「对话模型」共用，而你现在用的是 ${provider.displayName()}" +
+                        "：拿它的密钥去请求智谱只会鉴权失败。要么把「对话模型」换成智谱 GLM，" +
+                        "要么改用「自动」或「必应」（两者都不需要智谱密钥）。"
+                }
+            WebSearchBackend.BING ->
+                "免密钥：直接抓取必应搜索结果页。不依赖任何账号，但结果页改版时可能失效，" +
+                    "届时换回「自动」或填密钥的后端即可。"
+            // requiresApiKey 的后端走输入框，不会走到这里
+            else -> ""
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -1149,28 +1095,40 @@ private fun contextPermissions(): Array<String> =
         }
     }.toTypedArray()
 
+/**
+ * 模型卡片的动作行。
+ *
+ * 「保存」只属于这组配置：其它开关改了即生效，只有这里要先落盘才被主对话读到；
+ * 把它放在卡片里而不是顶栏，是避免用户以为开关也要点保存。
+ */
 @Composable
-private fun ConnectivityCheckRow(
+private fun ModelConfigActions(
     result: ConnectivityResult?,
     isChecking: Boolean,
     onTest: () -> Unit,
+    onSave: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        OutlinedButton(
-            onClick = onTest,
-            enabled = !isChecking,
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("测试连接")
-        }
-        if (isChecking) {
-            RowanLoadingIndicator(
-                modifier = Modifier.size(16.dp),
-                color = MaterialTheme.colorScheme.primary,
-            )
+            OutlinedButton(
+                onClick = onTest,
+                enabled = !isChecking,
+            ) {
+                Text("测试连接")
+            }
+            Button(onClick = onSave) {
+                Text("保存")
+            }
+            if (isChecking) {
+                RowanLoadingIndicator(
+                    modifier = Modifier.size(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
         ConnectivityResultLabel(result)
     }
@@ -1199,14 +1157,6 @@ private fun ConnectivityResultLabel(result: ConnectivityResult?) {
         )
     }
 }
-
-private fun ConnectivityResult?.summaryLabel(): String =
-    when (this) {
-        null -> "等待检查"
-        is ConnectivityResult.Success -> "连接正常"
-        is ConnectivityResult.AuthFailure -> "鉴权失败"
-        is ConnectivityResult.Unreachable -> "不可达"
-    }
 
 @Composable
 private fun DataTransparencySection(viewModel: ChatViewModel) {
@@ -1239,10 +1189,6 @@ private fun DataTransparencySection(viewModel: ChatViewModel) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SettingsSectionTitle(
-            title = "数据透明",
-            subtitle = "本地存储，可查可改可删",
-        )
         ChatCardSurface {
             Column(
                 modifier = Modifier.padding(12.dp),
