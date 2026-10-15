@@ -559,6 +559,36 @@ class ChatViewModelTest {
         assertTrue(state.modelProbeMessage.orEmpty().contains("手动填写"))
     }
 
+    @Test
+    fun `ensureIntroMessage greets an empty session exactly once`() = runTest {
+        viewModel.ensureIntroMessage()
+        advanceUntilIdle()
+        viewModel.ensureIntroMessage()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            messageRepo.saveAssistantMessage("default", COMPANION_INTRO_MESSAGE)
+        }
+    }
+
+    @Test
+    fun `ensureIntroMessage skips a session that already has history`() = runTest {
+        coEvery { messageRepo.getRecentMessages("default", 1) } returns listOf(
+            MessageEntity(
+                id = "m1",
+                sessionId = "default",
+                role = MessageRole.USER,
+                content = "在吗",
+                timestamp = 1L,
+            ),
+        )
+
+        viewModel.ensureIntroMessage()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { messageRepo.saveAssistantMessage(any(), any()) }
+    }
+
     private fun toolCallSnapshot(
         id: String,
         toolName: String,

@@ -121,6 +121,11 @@ fun ChatScreen(
         viewModel.consumePrefillPrompt("")
     }
 
+    // 空会话由 Rowan 先开口做自我介绍邀约,用户不必面对空白页想第一句说什么
+    LaunchedEffect(currentSessionId) {
+        viewModel.ensureIntroMessage()
+    }
+
     ChatScreenContent(
         uiState = uiState,
         conversations = conversations,

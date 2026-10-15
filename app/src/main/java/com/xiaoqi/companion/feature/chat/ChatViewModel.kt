@@ -109,6 +109,8 @@ class ChatViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ChatUiState())
     private val lastPresenceReactionAtMillis = mutableMapOf<PresenceReaction, Long>()
+    /** 已经补过开场白的会话 ID，见 [ensureIntroMessage]。 */
+    private var introMessageSessionId: String? = null
     //region 对话后即时洞察:防抖 + 防重入
     private var lastPostChatInsightAt = 0L
     private var postChatInsightJob: Job? = null
@@ -712,6 +714,32 @@ class ChatViewModel @Inject constructor(
     }
 
     //endregion
+
+    /**
+     * 确认当前会话已经由 Rowan 开过场了，没有就补一条固定的自我介绍邀约。
+     *
+     * 按会话 ID 而不是布尔量记状态：换会话（[startNewConversation]）后新会话本来就该重新开场，
+     * 用布尔量还得手动复位。
+     *
+     * 插入前再查一次库，是因为进入 Chat 页时 Room 的消息流可能还没回流第一帧 ——
+     * 只信 `uiState.messages` 会给"其实有历史消息"的老会话重复插一条问候。
+     */
+    fun ensureIntroMessage() {
+        viewModelScope.launch {
+            val sessionId = appPreferences.currentSessionId.first()
+            if (introMessageSessionId == sessionId) return@launch
+            introMessageSessionId = sessionId
+            if (messageRepository.getRecentMessages(sessionId, 1).isNotEmpty()) return@launch
+            runCatching { messageRepository.saveAssistantMessage(sessionId, COMPANION_INTRO_MESSAGE) }
+                .onFailure {
+                    AppLogger.warn(
+                        LogTags.Chat,
+                        "intro_message_save_failed",
+                        "error" to (it.message ?: it::class.simpleName.orEmpty()),
+                    )
+                }
+        }
+    }
 
     //region 委托给 UseCase
 
