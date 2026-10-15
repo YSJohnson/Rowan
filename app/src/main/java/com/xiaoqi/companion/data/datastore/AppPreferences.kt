@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.xiaoqi.companion.core.presence.runtime.DreamLoopInterval
+import com.xiaoqi.companion.core.search.WebSearchBackend
 import com.xiaoqi.companion.data.repository.DefaultLlmValues
 import com.xiaoqi.companion.data.db.converter.LlmProvider
 import com.xiaoqi.companion.data.db.converter.ThemeMode
@@ -37,6 +38,20 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
      * 让用户能走"裸聊天"模式。
      */
     val systemToolsEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.systemToolsEnabled] ?: true }
+    /** 联网搜索总开关。关掉后 `web_search` 工具仍然注册，但调用会返回 disabled 信封。 */
+    val webSearchEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.webSearchEnabled] ?: true }
+
+    /**
+     * 联网搜索后端。反解失败一律回 [WebSearchBackend.GLM] —— 它复用对话密钥，
+     * 是唯一"用户什么都不用额外配"的选项。
+     */
+    val webSearchBackend: Flow<WebSearchBackend> = dataStore.data.map {
+        val stored = it[Keys.webSearchBackend]
+        WebSearchBackend.entries.firstOrNull { backend -> backend.name == stored } ?: WebSearchBackend.GLM
+    }
+
+    /** Tavily / Serper 用的独立密钥；GLM 后端不读它。 */
+    val webSearchApiKey: Flow<String> = dataStore.data.map { it[Keys.webSearchApiKey] ?: "" }
     val llmProvider: Flow<LlmProvider> = dataStore.data.map {
         LlmProvider.fromStoredName(it[Keys.llmProvider], defaultLlmProvider)
     }
@@ -95,6 +110,9 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
     suspend fun setWeatherContextEnabled(value: Boolean) { dataStore.edit { it[Keys.weatherContextEnabled] = value } }
     suspend fun setReminderToolEnabled(value: Boolean) { dataStore.edit { it[Keys.reminderToolEnabled] = value } }
     suspend fun setSystemToolsEnabled(value: Boolean) { dataStore.edit { it[Keys.systemToolsEnabled] = value } }
+    suspend fun setWebSearchEnabled(value: Boolean) { dataStore.edit { it[Keys.webSearchEnabled] = value } }
+    suspend fun setWebSearchBackend(value: WebSearchBackend) { dataStore.edit { it[Keys.webSearchBackend] = value.name } }
+    suspend fun setWebSearchApiKey(value: String) { dataStore.edit { it[Keys.webSearchApiKey] = value } }
     suspend fun setLlmProvider(value: LlmProvider) { dataStore.edit { it[Keys.llmProvider] = value.name } }
     suspend fun setModelName(value: String) { dataStore.edit { it[Keys.modelName] = value } }
     suspend fun setCurrentSessionId(value: String) { dataStore.edit { it[Keys.currentSessionId] = value } }
@@ -115,6 +133,9 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
         val weatherContextEnabled = booleanPreferencesKey("weather_context_enabled")
         val reminderToolEnabled = booleanPreferencesKey("reminder_tool_enabled")
         val systemToolsEnabled = booleanPreferencesKey("system_tools_enabled")
+        val webSearchEnabled = booleanPreferencesKey("web_search_enabled")
+        val webSearchBackend = stringPreferencesKey("web_search_backend")
+        val webSearchApiKey = stringPreferencesKey("web_search_api_key")
         val llmProvider = stringPreferencesKey("llm_provider")
         val modelName = stringPreferencesKey("model_name")
         val dreamLoopIntervalMinutes = intPreferencesKey("dream_loop_interval_minutes")

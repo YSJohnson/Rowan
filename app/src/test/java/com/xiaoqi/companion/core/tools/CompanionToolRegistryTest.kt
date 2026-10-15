@@ -11,7 +11,7 @@ import org.junit.Test
 
 class CompanionToolRegistryTest {
 
-    // 真实工具实例(各自依赖用 relaxed mock 填充),保证 10 个工具名唯一,
+    // 真实工具实例(各自依赖用 relaxed mock 填充),保证 11 个工具名唯一,
     // 避开 Koog ToolRegistry.builder() 的重名检查。
     private val searchMemoryTool = SearchMemoryTool(mockk(relaxed = true))
     private val searchRecordsTool = SearchRecordsTool(
@@ -48,6 +48,7 @@ class CompanionToolRegistryTest {
         relationshipModel = mockk(relaxed = true),
         memoryRepository = mockk(relaxed = true),
     )
+    private val webSearchTool = WebSearchTool(router = mockk(relaxed = true))
 
     private fun newRegistry(appPreferences: AppPreferences): CompanionToolRegistry = CompanionToolRegistry(
         searchMemoryTool = searchMemoryTool,
@@ -60,6 +61,7 @@ class CompanionToolRegistryTest {
         getWeatherTool = getWeatherTool,
         createLocalReminderTool = createLocalReminderTool,
         updateStateTool = updateStateTool,
+        webSearchTool = webSearchTool,
         appPreferences = appPreferences,
     )
 
@@ -71,8 +73,9 @@ class CompanionToolRegistryTest {
     fun create_systemToolsEnabled_registersAllBuiltinTools() = runTest {
         val tools = newRegistry(appPrefs(systemTools = true)).create()
 
-        assertEquals(10, tools.tools.size)
+        assertEquals(11, tools.tools.size)
         assertTrue(tools.tools.any { it.name == "search_memory" })
+        assertTrue(tools.tools.any { it.name == "web_search" })
         assertTrue(tools.tools.any { it.name == "update_state" })
     }
 

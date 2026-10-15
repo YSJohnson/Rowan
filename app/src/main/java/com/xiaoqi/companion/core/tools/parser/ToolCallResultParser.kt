@@ -63,6 +63,7 @@ class ToolCallResultParser @Inject constructor() {
             "get_recent_interaction_context" -> parseRecentContext(data)
             "get_device_status" -> parseDeviceStatus(data)
             "get_weather" -> parseWeather(data)
+            "web_search" -> parseWebSearch(data)
             "get_user_context_settings" -> parseUserContextSettings(data)
             "update_state" -> parseUpdateState(data)
             else -> ToolResultSummary.Unknown(raw = data.toString())
@@ -96,6 +97,13 @@ class ToolCallResultParser @Inject constructor() {
         val items = data.arrayAt("results")
             .mapNotNull { it.asObject().str("title") }
         return ToolResultSummary.ListHits(title = "总结搜索", count = count, items = items)
+    }
+
+    private fun parseWebSearch(data: JsonObject): ToolResultSummary {
+        val count = data.int("resultCount") ?: data.arrayAt("results").size
+        if (count == 0) return ToolResultSummary.Empty(title = "联网搜索")
+        val items = data.arrayAt("results").mapNotNull { it.asObject().str("title") }
+        return ToolResultSummary.ListHits(title = "联网搜索", count = count, items = items)
     }
 
     private fun parseSaveMemory(data: JsonObject): ToolResultSummary {
@@ -216,6 +224,7 @@ class ToolCallResultParser @Inject constructor() {
         "get_recent_interaction_context" -> "最近互动"
         "get_device_status" -> "设备状态"
         "get_weather" -> "天气"
+        "web_search" -> "联网搜索"
         "get_user_context_settings" -> "上下文设置"
         "update_state" -> "状态更新"
         else -> toolName

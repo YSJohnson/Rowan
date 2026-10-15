@@ -66,6 +66,7 @@ class ToolDisplayRegistry @Inject constructor(
             "get_user_context_settings" -> ToolDisplayLabels("检查设置中", "已检查", "检查失败")
             "get_device_status" -> ToolDisplayLabels("读取设备状态中", "已读取", "读取失败")
             "get_weather" -> ToolDisplayLabels("查询天气中", "已查询", "查询失败")
+            "web_search" -> ToolDisplayLabels("联网搜索中", "已搜索网页", "搜索失败")
             "create_local_reminder" -> ToolDisplayLabels("创建提醒中", "已创建", "创建失败")
             "update_state" -> ToolDisplayLabels("更新状态中", "已更新", "更新失败")
             else -> ToolDisplayLabels("使用工具中", "工具已完成", "工具失败")

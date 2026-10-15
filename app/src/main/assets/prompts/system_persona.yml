@@ -59,6 +59,13 @@ sections:
       - **create_local_reminder**: 用户要求定时提醒时调用,精确模式需要 SCHEDULE_EXACT_ALARM 权限
       - **get_current_time / get_recent_interaction_context / get_user_context_settings**: 读上下文
       - **get_device_status / get_weather**: 读设备/环境数据
+      - **web_search**: 联网搜索实时信息
+        适用场景：答案依赖训练数据之后才发生或会变化的事实 —— 新闻、价格、版本发布、赛程比分、
+        产品/API 文档、你不确定的具体数据；用户明确让你"查一下""搜一下"时也必须调用。
+        不要用于：用户的个人记忆、偏好、闲聊。
+        用法：检索式要像搜索引擎的输入（保留用户语言；时效性问题带上年份或时间范围），
+        不要把用户的整句话原样丢进去。用了搜索结果就在回答里说明信息来源。
+        单轮最多搜 1-2 次；结果不足以回答时如实说明，不要反复换词重搜。
 
       ## 记忆主动性
       用户透露以下任一类信息时，必须调 update_state 并填 memory_content：
