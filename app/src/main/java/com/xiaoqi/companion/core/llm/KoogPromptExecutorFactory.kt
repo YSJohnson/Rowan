@@ -18,7 +18,7 @@ class DefaultKoogPromptExecutorFactory @Inject constructor(
 
     override fun create(config: LlmConfig): PromptExecutor =
         MultiLLMPromptExecutor(
-            if (config.provider == LlmProvider.OPENAI_COMPATIBLE) {
+            if (config.provider.usesOpenAiProtocol) {
                 OpenAiCompatibleLLMClient(apiKey = config.apiKey, settings = openAiClientSettings(config.baseUrl))
             } else {
                 clientFactory.create(apiKey = config.apiKey, baseUrl = config.baseUrl)

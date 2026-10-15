@@ -44,11 +44,13 @@ class DebugConfigSeeder @Inject constructor(
     internal suspend fun seedLlm(force: Boolean, provider: LlmProvider?, model: String, baseUrl: String) {
         if (provider == null) return
 
-        // 构建 per-provider key map，所有非空 key 同时注入
+        // 构建 per-provider key map，所有非空 key 同时注入。
+        // 只有这几个服务商有对应的 .env 字段；其余服务商的 key 走应用内设置页填写。
         val keyMap = mapOf(
             LlmProvider.GLM to BuildConfig.ENV_GLM_API_KEY,
             LlmProvider.MODELSCOPE to BuildConfig.ENV_MODELSCOPE_API_KEY,
             LlmProvider.KIMI to BuildConfig.ENV_KIMI_API_KEY,
+            LlmProvider.OPENAI to BuildConfig.ENV_OPENAI_API_KEY,
             LlmProvider.OPENAI_COMPATIBLE to BuildConfig.ENV_OPENAI_API_KEY,
         ).filterValues { it.isNotBlank() }
 
@@ -70,7 +72,7 @@ class DebugConfigSeeder @Inject constructor(
                 appPreferences.setModelName(model.ifBlank { DefaultLlmValues.defaultModel(provider) })
             }
         }
-        if (provider == LlmProvider.OPENAI_COMPATIBLE && appPreferences.llmProvider.first() == provider &&
+        if (provider.isCustomEndpoint && appPreferences.llmProvider.first() == provider &&
             baseUrl.isNotBlank() && (force || appPreferences.baseUrl.first().isBlank()) &&
             runCatching { openAiClientSettings(baseUrl) }.isSuccess
         ) {
