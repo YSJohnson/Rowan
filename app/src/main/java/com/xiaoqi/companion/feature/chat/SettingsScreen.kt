@@ -80,6 +80,7 @@ import com.xiaoqi.companion.core.logging.LogTags
 import com.xiaoqi.companion.core.presence.runtime.DreamLoopInterval
 import com.xiaoqi.companion.core.presence.runtime.DreamRunObserver
 import com.xiaoqi.companion.core.pulse.PulsePreferences
+import com.xiaoqi.companion.core.search.WebSearchBackend
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -107,6 +108,8 @@ internal data class SettingsScreenState(
     val probedModels: List<String>,
     val isProbingModels: Boolean,
     val modelProbeMessage: String?,
+    val webSearchBackend: WebSearchBackend,
+    val webSearchApiKey: String,
     val dreamLoopInterval: DreamLoopInterval,
     val dreamRunState: DreamRunObserver.Snapshot,
     val lastDreamSuccessAtMs: Long,
@@ -132,6 +135,9 @@ internal data class SettingsScreenActions(
     val onReminderToolEnabledChanged: (Boolean) -> Unit,
     val onNotificationEnabledChanged: (Boolean) -> Unit,
     val onSystemToolsEnabledChanged: (Boolean) -> Unit,
+    val onWebSearchEnabledChanged: (Boolean) -> Unit,
+    val onWebSearchBackendChanged: (WebSearchBackend) -> Unit,
+    val onWebSearchApiKeySaved: (String) -> Unit,
     val onDreamLoopIntervalChanged: (DreamLoopInterval) -> Unit,
     val onTriggerDreamLoopNow: () -> Unit,
     val onRequestContextPermissions: () -> Unit,
@@ -161,6 +167,9 @@ internal data class SettingsScreenActions(
             onReminderToolEnabledChanged = viewModel::setReminderToolEnabled,
             onNotificationEnabledChanged = viewModel::setNotificationEnabled,
             onSystemToolsEnabledChanged = viewModel::setSystemToolsEnabled,
+            onWebSearchEnabledChanged = viewModel::setWebSearchEnabled,
+            onWebSearchBackendChanged = viewModel::setWebSearchBackend,
+            onWebSearchApiKeySaved = viewModel::setWebSearchApiKey,
             onDreamLoopIntervalChanged = viewModel::setDreamLoopInterval,
             onTriggerDreamLoopNow = viewModel::triggerDreamLoopNow,
             onRequestContextPermissions = onRequestContextPermissions,
@@ -228,6 +237,8 @@ fun SettingsScreen(
             probedModels = uiState.probedModels,
             isProbingModels = uiState.isProbingModels,
             modelProbeMessage = uiState.modelProbeMessage,
+            webSearchBackend = uiState.settingsWebSearchBackend,
+            webSearchApiKey = uiState.settingsWebSearchApiKey,
             dreamLoopInterval = dreamLoopInterval,
             dreamRunState = dreamRunState,
             lastDreamSuccessAtMs = lastDreamSuccessAtMs,
@@ -570,6 +581,15 @@ private fun LazyListScope.settingsCapabilitiesPage(
             )
             DividerSpacer()
             SettingsToggleRow(
+                title = "联网搜索",
+                detail = "Rowan 觉得需要时自己上网查",
+                meta = "需联网",
+                metaIcon = Icons.Outlined.Wifi,
+                checked = state.toolSettings.webSearchEnabled,
+                onCheckedChange = actions.onWebSearchEnabledChanged,
+            )
+            DividerSpacer()
+            SettingsToggleRow(
                 title = "上下文",
                 detail = "时间与近期对话",
                 meta = "固定开启",
@@ -578,6 +598,34 @@ private fun LazyListScope.settingsCapabilitiesPage(
                 locked = true,
                 onCheckedChange = {},
             )
+        }
+    }
+    item {
+        SettingsSectionTitle(
+            title = "联网搜索",
+            subtitle = "Rowan 觉得需要最新信息时会自己调用，不用你手动触发",
+        )
+    }
+    item {
+        SettingsGroupCard {
+            WebSearchBackendPicker(
+                backend = state.webSearchBackend,
+                onBackendChanged = actions.onWebSearchBackendChanged,
+            )
+            Spacer(Modifier.height(10.dp))
+            if (state.webSearchBackend == WebSearchBackend.GLM) {
+                Text(
+                    text = "用「云端接入」里已经填好的 GLM 密钥，不必再申请一个服务。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                WebSearchKeyField(
+                    backend = state.webSearchBackend,
+                    savedKey = state.webSearchApiKey,
+                    onSave = actions.onWebSearchApiKeySaved,
+                )
+            }
         }
     }
     item {
@@ -798,6 +846,53 @@ private fun SettingsGroupCard(content: @Composable () -> Unit) {
 private fun DividerSpacer() {
     HorizontalDivider(
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+    )
+}
+
+@Composable
+private fun WebSearchBackendPicker(
+    backend: WebSearchBackend,
+    onBackendChanged: (WebSearchBackend) -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        WebSearchBackend.entries.forEach { candidate ->
+            FilterChip(
+                selected = backend == candidate,
+                onClick = { onBackendChanged(candidate) },
+                label = { Text(candidate.displayName()) },
+                colors = rowanFilterChipColors(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WebSearchKeyField(
+    backend: WebSearchBackend,
+    savedKey: String,
+    onSave: (String) -> Unit,
+) {
+    // 草稿与已存值分开：每敲一个字就写一次 DataStore 既浪费又会让输入框被回流覆盖。
+    var draft by remember(backend, savedKey) { mutableStateOf(savedKey) }
+    OutlinedTextField(
+        value = draft,
+        onValueChange = { draft = it },
+        label = { Text("${backend.displayName()} API Key") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        supportingText = { Text("明文显示便于核对；改完点右侧「保存」") },
+        trailingIcon = {
+            TextButton(
+                onClick = { onSave(draft) },
+                enabled = draft.trim() != savedKey,
+            ) {
+                Text("保存")
+            }
+        },
     )
 }
 

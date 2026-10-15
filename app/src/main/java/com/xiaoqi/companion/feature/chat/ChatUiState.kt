@@ -6,6 +6,7 @@ import com.xiaoqi.companion.core.llm.ConnectivityResult
 import com.xiaoqi.companion.core.presence.PresenceAnimationState
 import com.xiaoqi.companion.core.presence.PresenceReaction
 import com.xiaoqi.companion.core.presence.PresenceUiState
+import com.xiaoqi.companion.core.search.WebSearchBackend
 import com.xiaoqi.companion.core.task.AgentLongTask
 import com.xiaoqi.companion.data.db.converter.LlmProvider
 import com.xiaoqi.companion.data.repository.DefaultLlmValues
@@ -164,6 +165,8 @@ data class ChatToolCapabilitySettings(
     val notificationEnabled: Boolean = true,
     /** 系统默认工具(记忆/时间/提醒等)开关。默认 true。 */
     val systemToolsEnabled: Boolean = true,
+    /** 联网搜索开关。关掉后 web_search 仍注册但调用返回 disabled,模型会改用已有知识回答。 */
+    val webSearchEnabled: Boolean = true,
 )
 
 data class ChatImageAttachment(
@@ -216,6 +219,9 @@ data class ChatUiState(
     val settingsProvider: LlmProvider = LlmProvider.GLM,
     val settingsModelName: String = DefaultLlmValues.GLM_MODEL,
     val settingsMessage: String? = null,
+    /** 联网搜索后端与它需要的密钥（GLM 后端复用对话密钥，不读这一项）。 */
+    val settingsWebSearchBackend: WebSearchBackend = WebSearchBackend.GLM,
+    val settingsWebSearchApiKey: String = "",
     /**
      * "探测模型"拉到的清单。切换 Provider 时清空 —— 上家的模型 ID 对下家没有意义。
      * 为空且不在探测中时，设置页提示用户手动填写模型名。

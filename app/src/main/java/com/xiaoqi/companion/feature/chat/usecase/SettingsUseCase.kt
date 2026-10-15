@@ -2,6 +2,7 @@ package com.xiaoqi.companion.feature.chat.usecase
 
 import com.xiaoqi.companion.core.logging.AppLogger
 import com.xiaoqi.companion.core.logging.LogTags
+import com.xiaoqi.companion.core.search.WebSearchBackend
 import com.xiaoqi.companion.data.datastore.AppPreferences
 import com.xiaoqi.companion.data.db.converter.LlmProvider
 import com.xiaoqi.companion.data.repository.ConfigRepository
@@ -200,6 +201,36 @@ class SettingsUseCase @Inject constructor(
         update: (ChatUiState.() -> ChatUiState) -> Unit,
     ) = updateBooleanPreference("notification", value, update) {
         appPreferences.setNotificationEnabled(value)
+    }
+
+    suspend fun setWebSearchEnabled(
+        value: Boolean,
+        update: (ChatUiState.() -> ChatUiState) -> Unit,
+    ) = updateBooleanPreference("web_search", value, update) {
+        appPreferences.setWebSearchEnabled(value)
+    }
+
+    suspend fun setWebSearchBackend(
+        value: WebSearchBackend,
+        update: (ChatUiState.() -> ChatUiState) -> Unit,
+    ) {
+        update { copy(settingsWebSearchBackend = value) }
+        runCatching { appPreferences.setWebSearchBackend(value) }.onFailure {
+            AppLogger.error(LogTags.Config, it, "preference_update_failed", "name" to "web_search_backend")
+            update { copy(error = "更新设置失败，请重试。") }
+        }
+    }
+
+    suspend fun setWebSearchApiKey(
+        value: String,
+        update: (ChatUiState.() -> ChatUiState) -> Unit,
+    ) {
+        val trimmed = value.trim()
+        update { copy(settingsWebSearchApiKey = trimmed) }
+        runCatching { appPreferences.setWebSearchApiKey(trimmed) }.onFailure {
+            AppLogger.error(LogTags.Config, it, "preference_update_failed", "name" to "web_search_api_key")
+            update { copy(error = "更新设置失败，请重试。") }
+        }
     }
 
     private suspend fun updateBooleanPreference(

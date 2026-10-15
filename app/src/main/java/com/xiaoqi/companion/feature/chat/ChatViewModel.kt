@@ -14,6 +14,7 @@ import com.xiaoqi.companion.core.logging.AppLogger
 import com.xiaoqi.companion.core.logging.LogTags
 import com.xiaoqi.companion.core.llm.ConnectivityResult
 import com.xiaoqi.companion.core.llm.ModelProbeResult
+import com.xiaoqi.companion.core.search.WebSearchBackend
 import com.xiaoqi.companion.core.presence.PresenceController
 import com.xiaoqi.companion.core.presence.PresenceEvent
 import com.xiaoqi.companion.core.presence.PresenceInputs
@@ -204,9 +205,24 @@ class ChatViewModel @Inject constructor(
                     )
                 },
                 appPreferences.systemToolsEnabled,
-            ) { settings, systemTools -> settings.copy(systemToolsEnabled = systemTools) }
+                appPreferences.webSearchEnabled,
+            ) { settings, systemTools, webSearch ->
+                settings.copy(systemToolsEnabled = systemTools, webSearchEnabled = webSearch)
+            }
                 .collect { settings ->
                     _uiState.update { it.copy(toolCapabilitySettings = settings) }
+                }
+        }
+
+        viewModelScope.launch {
+            combine(
+                appPreferences.webSearchBackend,
+                appPreferences.webSearchApiKey,
+            ) { backend, apiKey -> backend to apiKey }
+                .collect { (backend, apiKey) ->
+                    _uiState.update {
+                        it.copy(settingsWebSearchBackend = backend, settingsWebSearchApiKey = apiKey)
+                    }
                 }
         }
 
@@ -1102,6 +1118,24 @@ class ChatViewModel @Inject constructor(
     fun setSystemToolsEnabled(value: Boolean) {
         viewModelScope.launch {
             settingsUseCase.setSystemToolsEnabled(value) { reducer -> _uiState.update(reducer) }
+        }
+    }
+
+    fun setWebSearchEnabled(value: Boolean) {
+        viewModelScope.launch {
+            settingsUseCase.setWebSearchEnabled(value) { reducer -> _uiState.update(reducer) }
+        }
+    }
+
+    fun setWebSearchBackend(value: WebSearchBackend) {
+        viewModelScope.launch {
+            settingsUseCase.setWebSearchBackend(value) { reducer -> _uiState.update(reducer) }
+        }
+    }
+
+    fun setWebSearchApiKey(value: String) {
+        viewModelScope.launch {
+            settingsUseCase.setWebSearchApiKey(value) { reducer -> _uiState.update(reducer) }
         }
     }
 
