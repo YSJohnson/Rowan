@@ -27,13 +27,6 @@ class ToolPolicyTest {
     }
 
     @Test
-    fun systemOnly_allowsLocalWriteAndReadContext() {
-        assertTrue(ToolPolicy.systemOnly.allows(ToolMetadataRegistry.updateState))
-        assertTrue(ToolPolicy.systemOnly.allows(ToolMetadataRegistry.createLocalReminder))
-        assertTrue(ToolPolicy.systemOnly.allows(ToolMetadataRegistry.getWeather))
-    }
-
-    @Test
     fun none_disablesEverything() {
         assertFalse(ToolPolicy.none.allowTools)
         assertFalse(ToolPolicy.none.allows(ToolMetadataRegistry.searchMemory))

@@ -17,7 +17,6 @@ import com.xiaoqi.companion.core.llm.KoogPromptExecutorFactory
 import com.xiaoqi.companion.core.prompt.BuiltPrompt
 import com.xiaoqi.companion.core.tools.AgentToolRegistry
 import com.xiaoqi.companion.core.tools.ToolCallRecorder
-import com.xiaoqi.companion.core.tools.ToolCategory
 import com.xiaoqi.companion.core.tools.ToolPolicy
 import com.xiaoqi.companion.data.db.converter.LlmProvider
 import com.xiaoqi.companion.data.db.dao.ToolCallDao
@@ -170,52 +169,6 @@ class KoogAgentFactoryImplTest {
 
         assertEquals(2, executor.toolNamesPerCall.size)
         assertTrue(events.contains(KoogAgentEvent.TextDelta("我先停在这里，基于已经拿到的信息回答，避免继续重复调用工具。")))
-    }
-
-    @Test
-    fun runEvents_compoundTaskBlocksPrematureAnswerUntilRequiredEvidenceCompletes() = runTest {
-        val executor = CompoundMapPromptExecutor()
-        val policies = mutableListOf<ToolPolicy>()
-        val factory = KoogAgentFactoryImpl(
-            executorFactory = object : KoogPromptExecutorFactory {
-                override fun create(config: LlmConfig): PromptExecutor = executor
-            },
-            toolCallRecorder = toolCallRecorder,
-            toolRegistry = object : AgentToolRegistry {
-                override fun create(policy: ToolPolicy): ToolRegistry {
-                    policies += policy
-                    return ToolRegistry.builder()
-                        .tool(NamedTestTool("maps_around_search"))
-                        .tool(NamedTestTool("maps_search_detail"))
-                        .tool(NamedTestTool("maps_direction_walking"))
-                        .build()
-                }
-            },
-        )
-
-        val events = factory.create(testConfig).runEvents(
-            BuiltPrompt(
-                systemPrompt = "Use tools.",
-                userMessage = "Find coffee nearby and give me a walking route",
-            )
-        ).toList()
-
-        val finalDeltas = events.filterIsInstance<KoogAgentEvent.TextDelta>()
-        assertEquals("grounded final answer with enough content", finalDeltas.joinToString("") { it.text })
-        assertTrue(finalDeltas.size >= 2)
-        assertTrue(events.none { it == KoogAgentEvent.TextDelta("premature answer") })
-        assertEquals(
-            listOf(
-                "正在完成第 1/3 步",
-                "正在完成第 2/3 步",
-                "正在完成第 3/3 步",
-                "信息已齐，正在整理回答",
-            ),
-            events.filterIsInstance<KoogAgentEvent.Progress>().map { it.message }.distinct(),
-        )
-        assertEquals(5, executor.requestCount)
-        assertTrue(policies.single().allowedCategories.contains(ToolCategory.REMOTE_READ))
-        assertTrue(!policies.single().allowedCategories.contains(ToolCategory.LOCAL_WRITE))
     }
 
     @Test
@@ -387,59 +340,6 @@ class KoogAgentFactoryImplTest {
         override fun close() = Unit
     }
 
-    private class CompoundMapPromptExecutor : PromptExecutor() {
-        var requestCount = 0
-
-        override suspend fun execute(
-            prompt: Prompt,
-            model: LLModel,
-            tools: List<ToolDescriptor>,
-        ): List<Message.Response> = nextResponse()
-
-        override fun executeStreaming(
-            prompt: Prompt,
-            model: LLModel,
-            tools: List<ToolDescriptor>,
-        ): Flow<StreamFrame> {
-            val responses = nextResponse()
-            if (requestCount < 5) return responses.toStreamFrames().asFlow()
-            return listOf(
-                StreamFrame.TextDelta("grounded final answer ", null),
-                StreamFrame.TextDelta("with enough content", null),
-                StreamFrame.TextComplete("grounded final answer with enough content", null),
-                StreamFrame.End(null, ResponseMetaInfo(Clock.System.now())),
-            ).asFlow()
-        }
-
-        private fun nextResponse(): List<Message.Response> {
-            requestCount += 1
-            return when (requestCount) {
-                1 -> listOf(toolCall("nearby-1", "maps_around_search"))
-                2 -> listOf(Message.Assistant("premature answer", ResponseMetaInfo(Clock.System.now())))
-                3 -> listOf(toolCall("detail-1", "maps_search_detail"))
-                4 -> listOf(toolCall("route-1", "maps_direction_walking"))
-                else -> listOf(
-                    Message.Assistant(
-                        "grounded final answer\n<tool_result>{\"tool\":\"update_state\"}</tool_result>",
-                        ResponseMetaInfo(Clock.System.now()),
-                    )
-                )
-            }
-        }
-
-        private fun toolCall(id: String, name: String) = Message.Tool.Call(
-            id = id,
-            tool = name,
-            content = "{}",
-            metaInfo = ResponseMetaInfo(Clock.System.now()),
-        )
-
-        override suspend fun moderate(prompt: Prompt, model: LLModel): ModerationResult =
-            ModerationResult(isHarmful = false, categories = emptyMap())
-
-        override fun close() = Unit
-    }
-
     private class CompleteOnlyPromptExecutor : PromptExecutor() {
         override suspend fun execute(
             prompt: Prompt,
@@ -503,18 +403,6 @@ class KoogAgentFactoryImplTest {
 
         override suspend fun execute(args: Args): String =
             """{"status":"noted","content":"${args.content}"}"""
-    }
-
-    private class NamedTestTool(toolName: String) : SimpleTool<NamedTestTool.Args>(
-        typeToken<Args>(),
-        name = toolName,
-        description = "Test-only named tool.",
-    ) {
-        @Serializable
-        data class Args(val value: String = "")
-
-        override suspend fun execute(args: Args): String =
-            "{\"status\":\"ok\",\"value\":\"${args.value}\"}"
     }
 
     private companion object {

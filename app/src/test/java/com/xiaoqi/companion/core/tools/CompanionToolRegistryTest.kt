@@ -84,30 +84,12 @@ class CompanionToolRegistryTest {
     }
 
     @Test
-    fun createForQuery_keepsBuiltinToolsAvailable() = runTest {
-        val tools = newRegistry(appPrefs(systemTools = true))
-            .createForQuery("帮我看看附近的天气", requiredToolNames = setOf("get_weather"))
-
-        assertEquals(10, tools.tools.size)
-        assertTrue(tools.tools.any { it.name == "get_weather" })
-    }
-
-    @Test
     fun create_readOnlyPolicy_filtersLocalWriteTools() = runTest {
         val tools = newRegistry(appPrefs(systemTools = true)).create(ToolPolicy.readOnly)
 
         assertTrue(tools.tools.any { it.name == "search_memory" })
         assertTrue(tools.tools.none { it.name == "update_state" })
         assertTrue(tools.tools.none { it.name == "create_local_reminder" })
-    }
-
-    @Test
-    fun create_systemOnlyPolicy_keepsReadAndLocalWriteTools() = runTest {
-        val tools = newRegistry(appPrefs(systemTools = true)).create(ToolPolicy.systemOnly)
-
-        assertTrue(tools.tools.any { it.name == "search_memory" })
-        assertTrue(tools.tools.any { it.name == "update_state" })
-        assertTrue(tools.tools.any { it.name == "create_local_reminder" })
     }
 
     @Test

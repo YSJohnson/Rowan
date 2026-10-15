@@ -10,13 +10,6 @@ import kotlinx.coroutines.runBlocking
 
 interface AgentToolRegistry {
     fun create(policy: ToolPolicy = ToolPolicy.chatDefault): ToolRegistry
-
-    /** 复合任务路径 (KoogAgentFactoryImpl) 会带入本轮 query 与必需工具名;内置工具不依赖它们。 */
-    fun createForQuery(
-        query: String,
-        policy: ToolPolicy = ToolPolicy.chatDefault,
-        requiredToolNames: Set<String> = emptySet(),
-    ): ToolRegistry = create(policy)
 }
 
 class CompanionToolRegistry @Inject constructor(

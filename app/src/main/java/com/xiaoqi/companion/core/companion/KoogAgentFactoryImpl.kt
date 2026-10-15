@@ -30,8 +30,6 @@ import com.xiaoqi.companion.core.companion.model.AgentToolCall
 import com.xiaoqi.companion.core.companion.model.ToolCallStatus
 import com.xiaoqi.companion.core.prompt.BuiltPrompt
 import com.xiaoqi.companion.core.tools.AgentToolRegistry
-import com.xiaoqi.companion.core.tools.CompositeTaskExecution
-import com.xiaoqi.companion.core.tools.CompositeTaskPlanner
 import com.xiaoqi.companion.core.tools.ToolCallRecorder
 import com.xiaoqi.companion.core.tools.ToolResultPromptComposer
 import com.xiaoqi.companion.core.tools.isError
@@ -87,15 +85,10 @@ private class KoogPromptExecutorWrapper(
 
     private val model = config.toKoogModel()
 
-    override suspend fun run(prompt: BuiltPrompt): String {
-        val taskExecution = CompositeTaskPlanner.create(prompt.userMessage)
-        val result = createAgent(prompt, observer = null, taskExecution).run(prompt.userMessage)
-        return if (taskExecution != null && !taskExecution.isComplete) {
-            taskExecution.incompleteFallback()
-        } else {
-            result.withoutToolProtocolArtifacts()
-        }
-    }
+    override suspend fun run(prompt: BuiltPrompt): String =
+        createAgent(prompt, observer = null)
+            .run(prompt.userMessage)
+            .withoutToolProtocolArtifacts()
 
     override suspend fun <T> runStructured(
         prompt: BuiltPrompt,
@@ -120,15 +113,7 @@ private class KoogPromptExecutorWrapper(
         var hasStreamingText = false
         val streamingText = StringBuilder()
         var emittedTextLength = 0
-        val taskExecution = CompositeTaskPlanner.create(prompt.userMessage)
-        if (taskExecution != null) {
-            AppLogger.info(
-                LogTags.Llm,
-                "compound_task_planned",
-                "goal" to taskExecution.goal,
-                "stepCount" to taskExecution.totalStepCount,
-            )
-        }
+
         fun emitSanitizedStreamingText(flush: Boolean) {
             val sanitized = streamingText.toString().withoutToolProtocolArtifacts()
             val targetLength = if (flush) {
@@ -164,10 +149,6 @@ private class KoogPromptExecutorWrapper(
             }
         }
 
-        taskExecution?.let {
-            observer.onProgress(COMPOUND_TASK_STAGE, it.progressMessage())
-        }
-
         val job = launch {
             try {
                 AppLogger.info(
@@ -178,14 +159,11 @@ private class KoogPromptExecutorWrapper(
                     "hasImage" to prompt.hasImage,
                     "userMessageLength" to prompt.userMessage.length,
                 )
-                val result = createAgent(prompt, observer, taskExecution).run(prompt.userMessage)
-                val safeResult = if (taskExecution != null && !taskExecution.isComplete) {
-                    taskExecution.incompleteFallback()
-                } else {
-                    result.withoutToolProtocolArtifacts()
-                }
-                if (safeResult.isNotBlank()) {
-                    observer.onTextComplete(safeResult)
+                val result = createAgent(prompt, observer)
+                    .run(prompt.userMessage)
+                    .withoutToolProtocolArtifacts()
+                if (result.isNotBlank()) {
+                    observer.onTextComplete(result)
                 }
                 AppLogger.info(
                     LogTags.Llm,
@@ -212,53 +190,21 @@ private class KoogPromptExecutorWrapper(
     private fun createAgent(
         prompt: BuiltPrompt,
         observer: KoogAgentObserver?,
-        taskExecution: CompositeTaskExecution? = CompositeTaskPlanner.create(prompt.userMessage),
     ) =
         AIAgent.builder()
             .promptExecutor(executor)
             .llmModel(model)
-            .prompt(
-                if (taskExecution == null) {
-                    prompt.toKoogAgentPrompt()
-                } else {
-                    prompt.copy(
-                        systemPrompt = prompt.systemPrompt + "\n\n" + taskExecution.initialInstruction(),
-                    ).toKoogAgentPrompt()
-                }
-            )
+            .prompt(prompt.toKoogAgentPrompt())
             .toolRegistry(
                 if (prompt.hasImage || !prompt.allowTools) {
                     ToolRegistry.EMPTY
                 } else {
-                    toolRegistry.createForQuery(
-                        query = prompt.userMessage,
-                        requiredToolNames = taskExecution?.requiredToolNameHints.orEmpty(),
-                        policy = if (taskExecution == null) {
-                            prompt.toolPolicy
-                        } else {
-                            com.xiaoqi.companion.core.tools.ToolPolicy.readOnly.copy(
-                                maxToolRoundsPerTurn = maxOf(
-                                    prompt.toolPolicy.maxToolRoundsPerTurn,
-                                    taskExecution.minimumToolRounds,
-                                ),
-                                maxToolCallsPerTurn = maxOf(
-                                    prompt.toolPolicy.maxToolCallsPerTurn,
-                                    taskExecution.minimumToolRounds,
-                                ),
-                            )
-                        },
-                    )
+                    toolRegistry.create(prompt.toolPolicy)
                 }
             )
-            .maxIterations(
-                if (taskExecution == null) {
-                    MAX_AGENT_ITERATIONS
-                } else {
-                    MAX_COMPOUND_AGENT_ITERATIONS
-                }
-            )
+            .maxIterations(MAX_AGENT_ITERATIONS)
             .id("companion-agent-${config.provider.name.lowercase()}")
-            .graphStrategy(streamingSingleRunStrategy(prompt, taskExecution, observer))
+            .graphStrategy(streamingSingleRunStrategy(prompt, observer))
             .install {
                 install(EventHandler.Feature) {
                     onToolCallStarting { context ->
@@ -324,12 +270,8 @@ private class KoogPromptExecutorWrapper(
                     }
                     onLLMStreamingFrameReceived { context ->
                         when (val frame = context.streamFrame) {
-                            is StreamFrame.TextDelta -> if (taskExecution == null || taskExecution.isComplete) {
-                                observer?.onTextDelta(frame.text)
-                            }
-                            is StreamFrame.TextComplete -> if (taskExecution == null || taskExecution.isComplete) {
-                                observer?.onTextComplete(frame.text)
-                            }
+                            is StreamFrame.TextDelta -> observer?.onTextDelta(frame.text)
+                            is StreamFrame.TextComplete -> observer?.onTextComplete(frame.text)
                             else -> Unit
                         }
                     }
@@ -340,54 +282,20 @@ private class KoogPromptExecutorWrapper(
     @OptIn(InternalAgentsApi::class)
     private fun streamingSingleRunStrategy(
         prompt: BuiltPrompt,
-        taskExecution: CompositeTaskExecution?,
         observer: KoogAgentObserver?,
     ) = strategy<String, String>("single_run_streaming_tools") {
         var toolResultRounds = 0
-        var completionGateRetries = 0
-        val maxToolRounds = maxOf(
-            prompt.toolPolicy.maxToolRoundsPerTurn,
-            taskExecution?.minimumToolRounds ?: 0,
-        )
-        val nodePrepareInitialRequest by node<String, String> { input ->
-            if (taskExecution != null && !taskExecution.isComplete) {
-                llm.writeSession {
-                    val nextStepTools = toolRegistry.tools
-                        .map { it.descriptor }
-                        .filter { taskExecution.acceptsNextTool(it.name) }
-                    if (nextStepTools.isNotEmpty()) {
-                        tools = nextStepTools
-                        if (nextStepTools.size == 1) {
-                            setToolChoiceNamed(nextStepTools.single().name)
-                        } else {
-                            setToolChoiceRequired()
-                        }
-                    }
-                }
-            }
-            input
-        }
+        val maxToolRounds = prompt.toolPolicy.maxToolRoundsPerTurn
         val nodeCallLLM by nodeLLMRequestStreamingAndSendResults<String>()
-        val nodeExecuteTool by nodeExecuteMultipleTools(parallelTools = taskExecution != null)
+        // 并行执行同一轮内的多个工具调用:模型可以自主把互相独立的查询放在一次响应里,不强制串行
+        val nodeExecuteTool by nodeExecuteMultipleTools(parallelTools = true)
         val nodeSendToolResult by node<List<ReceivedToolResult>, List<Message.Response>> { results ->
             // 翻 envelope 失败的 resultKind,让 Koog 标准的 Message.Tool.Result.isError 也被点亮
             toolResultRounds += 1
             val patchedResults = results.withErrorResultKind()
             val hasErrors = results.any { it.isErrorResult() }
-            taskExecution?.record(results)
-            if (taskExecution != null) {
-                observer?.onProgress(COMPOUND_TASK_STAGE, taskExecution.progressMessage())
-                AppLogger.info(
-                    LogTags.Llm,
-                    "compound_task_progress",
-                    "completedSteps" to taskExecution.completedStepCount,
-                    "totalSteps" to taskExecution.totalStepCount,
-                    "complete" to taskExecution.isComplete,
-                )
-            }
             val roundLimitReached = toolResultRounds >= maxToolRounds
-            val compoundTaskIncomplete = taskExecution?.isComplete == false
-            val finalWithoutTools = roundLimitReached || (hasErrors && taskExecution == null)
+            val finalWithoutTools = roundLimitReached || hasErrors
             results.forEach { result ->
                 AppLogger.info(
                     LogTags.Llm,
@@ -411,40 +319,15 @@ private class KoogPromptExecutorWrapper(
                                 hasErrors = hasErrors,
                                 roundLimitReached = roundLimitReached,
                             )
-                        } else if (taskExecution != null) {
-                            taskExecution.nextStepInstruction()
                         } else {
                             ToolResultPromptComposer.followupInstruction(hasErrors = false)
                         }
                     )
                 }
 
-                if (taskExecution != null) {
-                    if (taskExecution.isComplete) {
-                        tools = emptyList()
-                        setToolChoiceNone()
-                    } else if (!finalWithoutTools) {
-                        val nextStepTools = toolRegistry.tools
-                            .map { it.descriptor }
-                            .filter { taskExecution.acceptsNextTool(it.name) }
-                        if (nextStepTools.isNotEmpty()) {
-                            tools = nextStepTools
-                            if (nextStepTools.size == 1) {
-                                setToolChoiceNamed(nextStepTools.single().name)
-                            } else {
-                                setToolChoiceRequired()
-                            }
-                            AppLogger.info(
-                                LogTags.Llm,
-                                "compound_task_tools_constrained",
-                                "toolCount" to nextStepTools.size,
-                                "completedSteps" to taskExecution.completedStepCount,
-                            )
-                        }
-                    } else {
-                        tools = emptyList()
-                        setToolChoiceNone()
-                    }
+                if (finalWithoutTools) {
+                    tools = emptyList()
+                    setToolChoiceNone()
                 }
 
                 AppLogger.info(
@@ -457,46 +340,18 @@ private class KoogPromptExecutorWrapper(
                 var responses = requestLLMStreaming()
                     .toList()
                     .toMessageResponses()
-                while (
-                    compoundTaskIncomplete &&
-                    !finalWithoutTools &&
-                    responses.none { it is Message.Tool.Call } &&
-                    completionGateRetries < MAX_COMPLETION_GATE_RETRIES
-                ) {
-                    completionGateRetries += 1
-                    AppLogger.warn(
-                        LogTags.Llm,
-                        "compound_task_completion_gate_retry",
-                        "retry" to completionGateRetries,
-                        "completedSteps" to taskExecution.completedStepCount,
-                        "totalSteps" to taskExecution.totalStepCount,
+                responses = if (finalWithoutTools && responses.any { it is Message.Tool.Call }) {
+                    listOf(
+                        Message.Assistant(
+                            ToolResultPromptComposer.toolLoopFallbackMessage(
+                                hasErrors = hasErrors,
+                                roundLimitReached = roundLimitReached,
+                            ),
+                            metaInfo = ResponseMetaInfo(Clock.System.now()),
+                        )
                     )
-                    appendPrompt { messages(responses) }
-                    appendPrompt { user(taskExecution.nextStepInstruction()) }
-                    responses = requestLLMStreaming().toList().toMessageResponses()
-                }
-                responses = when {
-                    taskExecution != null && !taskExecution.isComplete &&
-                        (finalWithoutTools || responses.none { it is Message.Tool.Call }) -> {
-                        listOf(
-                            Message.Assistant(
-                                taskExecution.incompleteFallback(),
-                                metaInfo = ResponseMetaInfo(Clock.System.now()),
-                            )
-                        )
-                    }
-                    finalWithoutTools && responses.any { it is Message.Tool.Call } -> {
-                        listOf(
-                            Message.Assistant(
-                                ToolResultPromptComposer.toolLoopFallbackMessage(
-                                    hasErrors = hasErrors,
-                                    roundLimitReached = roundLimitReached,
-                                ),
-                                metaInfo = ResponseMetaInfo(Clock.System.now()),
-                            )
-                        )
-                    }
-                    else -> responses
+                } else {
+                    responses
                 }
                 AppLogger.info(
                     LogTags.Llm,
@@ -511,8 +366,7 @@ private class KoogPromptExecutorWrapper(
             }
         }
 
-        edge(nodeStart forwardTo nodePrepareInitialRequest)
-        edge(nodePrepareInitialRequest forwardTo nodeCallLLM)
+        edge(nodeStart forwardTo nodeCallLLM)
         edge(nodeCallLLM forwardTo nodeExecuteTool onMultipleToolCalls { true })
         edge(
             nodeCallLLM forwardTo nodeFinish
@@ -531,10 +385,7 @@ private class KoogPromptExecutorWrapper(
 
     private companion object {
         const val MAX_AGENT_ITERATIONS = 12
-        const val MAX_COMPOUND_AGENT_ITERATIONS = 20
-        const val MAX_COMPLETION_GATE_RETRIES = 2
         const val DEFAULT_SESSION_ID = "default"
-        const val COMPOUND_TASK_STAGE = "compound_task"
         const val STREAM_PROTOCOL_GUARD_LENGTH = 24
     }
 }

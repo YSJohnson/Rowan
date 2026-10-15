@@ -52,14 +52,6 @@ data class ToolPolicy(
             maxRiskLevel = ToolRiskLevel.MEDIUM,
         )
 
-        val systemOnly = ToolPolicy(
-            allowedCategories = setOf(
-                ToolCategory.READ_CONTEXT,
-                ToolCategory.LOCAL_WRITE,
-            ),
-            maxRiskLevel = ToolRiskLevel.MEDIUM,
-        )
-
         val readOnly = ToolPolicy(
             allowedCategories = setOf(
                 ToolCategory.READ_CONTEXT,
