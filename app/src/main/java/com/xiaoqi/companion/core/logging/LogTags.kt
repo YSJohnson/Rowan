@@ -14,5 +14,4 @@ object LogTags {
     const val Emotion = "Companion.Emotion"
     const val Relation = "Companion.Relation"
     const val Database = "Companion.DB"
-    const val HealthConnect = "Companion.HealthConnect"
 }

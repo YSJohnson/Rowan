@@ -105,7 +105,7 @@ object ToolEnvelopeFactory {
     fun disabled(reason: String, hint: String): ToolEnvelope.Error =
         ToolEnvelope.Error(reason = reason, hint = hint, details = emptyMap())
 
-    /** 子类:权限缺失(运行时权限 / 精确闹钟 / 通知 / 位置 / 读取健康 等)。 */
+    /** 子类:权限缺失(运行时权限 / 精确闹钟 / 通知 / 位置 等)。 */
     fun permissionMissing(permission: String, hint: String): ToolEnvelope.Error =
         ToolEnvelope.Error(
             reason = "permission_missing",

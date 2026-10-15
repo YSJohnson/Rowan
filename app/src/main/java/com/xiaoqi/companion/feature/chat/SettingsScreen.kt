@@ -72,7 +72,6 @@ import com.xiaoqi.companion.core.logging.LogTags
 import com.xiaoqi.companion.core.presence.runtime.DreamLoopInterval
 import com.xiaoqi.companion.core.presence.runtime.DreamRunObserver
 import com.xiaoqi.companion.core.pulse.PulsePreferences
-import com.xiaoqi.companion.feature.chat.humanizeDuration
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -80,8 +79,6 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.launch
 import com.xiaoqi.companion.data.db.converter.LlmProvider
 import com.xiaoqi.companion.data.repository.DefaultLlmValues
-import com.xiaoqi.companion.data.source.HealthConnectDataSource
-import com.xiaoqi.companion.data.source.SensorManagerHealthSource
 import com.xiaoqi.companion.ui.components.CompanionTopAppBar
 import com.xiaoqi.companion.ui.theme.ChatCardSurface
 import com.xiaoqi.companion.ui.theme.ChatStatusColors
@@ -104,17 +101,12 @@ internal data class SettingsScreenState(
     val lastDreamSuccessSavedCount: Int,
     val dataJustClearedAt: Long,
     val dataJustClearedCount: Int,
-    val healthSyncState: com.xiaoqi.companion.data.source.HealthSyncManager.SyncState,
-    val healthAutoSyncEnabled: Boolean,
-    val healthLastSyncAt: Long,
     val pulseEnabled: Boolean,
     val pulseIntervalMinutes: Int,
 )
 
 internal data class SettingsScreenActions(
     val viewModel: ChatViewModel,
-    val healthConnectDataSource: HealthConnectDataSource,
-    val sensorHealthSource: SensorManagerHealthSource,
     val onApiKeyChanged: (String) -> Unit,
     val onProviderChanged: (LlmProvider) -> Unit,
     val onModelNameChanged: (String) -> Unit,
@@ -130,8 +122,6 @@ internal data class SettingsScreenActions(
     val onDreamLoopIntervalChanged: (DreamLoopInterval) -> Unit,
     val onTriggerDreamLoopNow: () -> Unit,
     val onRequestContextPermissions: () -> Unit,
-    val onHealthAutoSyncEnabledChanged: (Boolean) -> Unit,
-    val onHealthSyncNow: () -> Unit,
     val onPulseEnabledChanged: (Boolean) -> Unit,
     val onPulseIntervalChanged: (Int) -> Unit,
     val onBack: () -> Unit,
@@ -145,8 +135,6 @@ internal data class SettingsScreenActions(
             onPulseIntervalChanged: (Int) -> Unit,
         ): SettingsScreenActions = SettingsScreenActions(
             viewModel = viewModel,
-            healthConnectDataSource = viewModel.healthConnectDataSource,
-            sensorHealthSource = viewModel.sensorHealthSource,
             onApiKeyChanged = viewModel::updateSettingsApiKey,
             onProviderChanged = viewModel::updateSettingsProvider,
             onModelNameChanged = viewModel::updateSettingsModelName,
@@ -162,8 +150,6 @@ internal data class SettingsScreenActions(
             onDreamLoopIntervalChanged = viewModel::setDreamLoopInterval,
             onTriggerDreamLoopNow = viewModel::triggerDreamLoopNow,
             onRequestContextPermissions = onRequestContextPermissions,
-            onHealthAutoSyncEnabledChanged = viewModel::setHealthAutoSyncEnabled,
-            onHealthSyncNow = viewModel::triggerHealthSyncNow,
             onPulseEnabledChanged = onPulseEnabledChanged,
             onPulseIntervalChanged = onPulseIntervalChanged,
             onBack = onBack,
@@ -206,9 +192,6 @@ fun SettingsScreen(
     val dreamRunState by viewModel.dreamRunState.collectAsStateWithLifecycle()
     val lastDreamSuccessAtMs by viewModel.lastDreamSuccessAtMs.collectAsStateWithLifecycle()
     val lastDreamSuccessSavedCount by viewModel.lastDreamSuccessSavedCount.collectAsStateWithLifecycle()
-    val healthSyncState by viewModel.healthSyncState.collectAsStateWithLifecycle()
-    val healthAutoSyncEnabled by viewModel.healthAutoSyncEnabled.collectAsStateWithLifecycle()
-    val healthLastSyncAt by viewModel.healthLastSyncAt.collectAsStateWithLifecycle()
     val pulsePreferences = rememberPulsePreferences()
     val pulseEnabled by pulsePreferences.pulseEnabled.collectAsStateWithLifecycle(initialValue = true)
     val pulseIntervalMinutes by pulsePreferences.pulseIntervalMinutes
@@ -234,9 +217,6 @@ fun SettingsScreen(
             lastDreamSuccessSavedCount = lastDreamSuccessSavedCount,
             dataJustClearedAt = uiState.dataJustClearedAt,
             dataJustClearedCount = uiState.dataJustClearedCount,
-            healthSyncState = healthSyncState,
-            healthAutoSyncEnabled = healthAutoSyncEnabled,
-            healthLastSyncAt = healthLastSyncAt,
             pulseEnabled = pulseEnabled,
             pulseIntervalMinutes = pulseIntervalMinutes,
         ),
@@ -265,7 +245,6 @@ private fun SettingsScreenContent(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var hasConsumedInitialDreamState by remember { mutableStateOf(false) }
-    var hasConsumedInitialHealthState by remember { mutableStateOf(false) }
     var selectedPage by remember { mutableStateOf(SettingsPage.MODEL) }
     val spacing = LocalCompanionSpacing.current
 
@@ -300,27 +279,6 @@ private fun SettingsScreenContent(
                 snackbarHostState.showSnackbar(msg)
             }
             DreamRunObserver.Status.FAILED -> snackbarHostState.showSnackbar(failedMsg)
-            else -> Unit
-        }
-    }
-
-    // healthSyncState 走 snackbar 反馈。Skipped 故意弹 — 用户期待点击立即有动作,
-    // 没动作 = bug,告知防抖原因可减少困惑。
-    val healthSuccessTemplate = stringResource(R.string.health_sync_success)
-    val healthFailureTemplate = stringResource(R.string.health_sync_failure)
-    val healthSkippedTemplate = stringResource(R.string.health_sync_skipped)
-    LaunchedEffect(state.healthSyncState) {
-        if (!hasConsumedInitialHealthState) {
-            hasConsumedInitialHealthState = true
-            return@LaunchedEffect
-        }
-        when (val s = state.healthSyncState) {
-            is com.xiaoqi.companion.data.source.HealthSyncManager.SyncState.Success ->
-                snackbarHostState.showSnackbar(healthSuccessTemplate.format(s.daysWithData))
-            is com.xiaoqi.companion.data.source.HealthSyncManager.SyncState.Failure ->
-                snackbarHostState.showSnackbar(healthFailureTemplate.format(s.reason))
-            is com.xiaoqi.companion.data.source.HealthSyncManager.SyncState.Skipped ->
-                snackbarHostState.showSnackbar(healthSkippedTemplate.format(humanizeDuration(s.sinceLastMs)))
             else -> Unit
         }
     }
@@ -577,7 +535,7 @@ private fun LazyListScope.settingsCapabilitiesPage(
             DividerSpacer()
             SettingsToggleRow(
                 title = "系统工具",
-                detail = "记忆/时间/提醒/Health 等内置工具",
+                detail = "记忆/时间/提醒等内置工具",
                 meta = "",
                 checked = state.toolSettings.systemToolsEnabled,
                 onCheckedChange = actions.onSystemToolsEnabledChanged,
@@ -612,17 +570,6 @@ private fun LazyListScope.settingsCapabilitiesPage(
             Spacer(Modifier.width(8.dp))
             Text("授予位置 / 通知权限（跳转系统设置）")
         }
-    }
-    item {
-        HealthDataSection(
-            syncState = state.healthSyncState,
-            autoSyncEnabled = state.healthAutoSyncEnabled,
-            lastSyncAtMillis = state.healthLastSyncAt,
-            onAutoSyncEnabledChanged = actions.onHealthAutoSyncEnabledChanged,
-            onSyncNow = actions.onHealthSyncNow,
-            healthConnectDataSource = actions.healthConnectDataSource,
-            sensorSource = actions.sensorHealthSource,
-        )
     }
 }
 

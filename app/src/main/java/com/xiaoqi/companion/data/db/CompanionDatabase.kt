@@ -9,7 +9,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.xiaoqi.companion.data.db.converter.Converters
 import com.xiaoqi.companion.data.db.dao.AgentStateDao
 import com.xiaoqi.companion.data.db.dao.ConversationDao
-import com.xiaoqi.companion.data.db.dao.HealthSnapshotDao
 import com.xiaoqi.companion.data.db.dao.InsightDao
 import com.xiaoqi.companion.data.db.dao.MessageDao
 import com.xiaoqi.companion.data.db.dao.MessageSearchDao
@@ -20,7 +19,6 @@ import com.xiaoqi.companion.data.db.dao.ReminderDao
 import com.xiaoqi.companion.data.db.dao.ToolCallDao
 import com.xiaoqi.companion.data.db.entity.AgentStateEntity
 import com.xiaoqi.companion.data.db.entity.ConversationEntity
-import com.xiaoqi.companion.data.db.entity.HealthSnapshotEntity
 import com.xiaoqi.companion.data.db.entity.InsightEntity
 import com.xiaoqi.companion.data.db.entity.MessageEntity
 import com.xiaoqi.companion.data.db.entity.MemoryEntity
@@ -39,10 +37,9 @@ import com.xiaoqi.companion.data.db.entity.ToolCallEntity
         ToolCallEntity::class,
         ReminderEntity::class,
         InsightEntity::class,
-        HealthSnapshotEntity::class,
         ConversationEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -57,7 +54,6 @@ abstract class CompanionDatabase : RoomDatabase() {
     abstract fun toolCallDao(): ToolCallDao
     abstract fun reminderDao(): ReminderDao
     abstract fun insightDao(): InsightDao
-    abstract fun healthSnapshotDao(): HealthSnapshotDao
     abstract fun conversationDao(): ConversationDao
 
     companion object {
@@ -196,9 +192,15 @@ abstract class CompanionDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 健康数据接入已下线，这张表在 [MIGRATION_11_12] 里会被立刻丢掉。
+         *
+         * 保留这一段是因为 Room 的迁移链必须对每个历史版本连续：停在 v8 的库直跳 v12 时，
+         * 缺了 8→9 会直接抛 `A migration from 8 to 12 was required but not found`。
+         * 建表再删表看着多余，但它买的是升级不崩。
+         */
         val MIGRATION_8_9 = object : DualMigration(8, 9) {
             override fun apply(executor: SqlExecutor) {
-                // Health Connect 接入:每日聚合健康快照(步数/心率/睡眠)
                 executor.exec(
                     """
                     CREATE TABLE IF NOT EXISTS `health_snapshots` (
@@ -257,6 +259,13 @@ abstract class CompanionDatabase : RoomDatabase() {
                     FROM messages WHERE session_id = 'default'
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_11_12 = object : DualMigration(11, 12) {
+            override fun apply(executor: SqlExecutor) {
+                // 健康数据接入已下线:数据库里残留的 health_snapshots 表直接丢弃
+                executor.exec("DROP TABLE IF EXISTS `health_snapshots`")
             }
         }
 

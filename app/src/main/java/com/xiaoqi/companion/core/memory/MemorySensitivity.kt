@@ -38,7 +38,6 @@ object MemorySourceKinds {
     const val TOOL_SAVE_MEMORY = "tool:save_memory"
     const val TOOL_UPDATE_STATE = "tool:update_state"
     const val POST_TURN_FALLBACK = "post_turn:fallback"
-    const val ONBOARDING = "onboarding"
     const val REFLECTION_VISION = "reflection:vision"
 
     /**
@@ -61,7 +60,6 @@ object MemorySourceKinds {
         TOOL_SAVE_MEMORY,
         TOOL_UPDATE_STATE,
         POST_TURN_FALLBACK,
-        ONBOARDING,
         REFLECTION_VISION,
         CHAT_MODE_PREFERENCE,
     )

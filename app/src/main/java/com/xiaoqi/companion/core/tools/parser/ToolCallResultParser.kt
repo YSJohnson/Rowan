@@ -65,7 +65,6 @@ class ToolCallResultParser @Inject constructor() {
             "get_weather" -> parseWeather(data)
             "get_user_context_settings" -> parseUserContextSettings(data)
             "update_state" -> parseUpdateState(data)
-            "query_health_data" -> parseHealthData(data)
             else -> ToolResultSummary.Unknown(raw = data.toString())
         }
     }
@@ -182,14 +181,6 @@ class ToolCallResultParser @Inject constructor() {
         return ToolResultSummary.SavedOne(title = "状态更新", subject = subject)
     }
 
-    private fun parseHealthData(data: JsonObject): ToolResultSummary {
-        val count = data.int("count") ?: 0
-        if (count == 0) return ToolResultSummary.Empty(title = "健康数据")
-        val items = data.arrayAt("samples")
-            .mapNotNull { it.asObject().str("label") }
-        return ToolResultSummary.ListHits(title = "健康数据", count = count, items = items)
-    }
-
     /** legacy 兜底:tool 返回纯 JSON 但不是 envelope。 */
     private fun parseLegacy(toolName: String, raw: String): ToolResultSummary? {
         return runCatching {
@@ -227,7 +218,6 @@ class ToolCallResultParser @Inject constructor() {
         "get_weather" -> "天气"
         "get_user_context_settings" -> "上下文设置"
         "update_state" -> "状态更新"
-        "query_health_data" -> "健康数据"
         else -> toolName
     }
 

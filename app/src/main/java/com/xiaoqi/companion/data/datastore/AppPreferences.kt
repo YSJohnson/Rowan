@@ -33,20 +33,29 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
     val weatherContextEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.weatherContextEnabled] ?: true }
     val reminderToolEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.reminderToolEnabled] ?: true }
     /**
-     * 系统默认工具开关。默认 true,关掉后 11 个内置工具(记忆/时间/提醒/Health 等)都不注册,
+     * 系统默认工具开关。默认 true,关掉后 10 个内置工具(记忆/时间/提醒等)都不注册,
      * 让用户能走"裸聊天"模式。
      */
     val systemToolsEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.systemToolsEnabled] ?: true }
     val llmProvider: Flow<LlmProvider> = dataStore.data.map {
         LlmProvider.fromStoredName(it[Keys.llmProvider], defaultLlmProvider)
     }
-    val modelName: Flow<String> = dataStore.data.map { it[Keys.modelName] ?: DefaultLlmValues.GLM_MODEL }
-    val userPatternsJson: Flow<String> = dataStore.data.map { it[Keys.userPatternsJson] ?: "[]" }
-    val recurringTopicsJson: Flow<String> = dataStore.data.map { it[Keys.recurringTopicsJson] ?: "[]" }
-    val onboardingCompletedAt: Flow<String> = dataStore.data.map { it[Keys.onboardingCompletedAt] ?: "" }
-    val healthLastSyncAt: Flow<Long> = dataStore.data.map { it[Keys.healthLastSyncAt] ?: 0L }
-    val healthAutoSyncEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.healthAutoSyncEnabled] ?: true }
-
+    /**
+     * 模型名。DataStore 里模型名是**不分 Provider 的共享字段**，所以当存的 Provider 名已下线
+     * （如 LOCAL_QWEN）时，必须连模型名一起丢弃：那个模型 ID 属于已下线的服务商，用它请求
+     * 必然失败。只有这种"Provider 名反解失败"的场景才回退默认模型 —— 正常切换 Provider 由
+     * SettingsUseCase 负责同步重置模型名，探测出来的自定义模型也不会被这里打回。
+     */
+    val modelName: Flow<String> = dataStore.data.map { prefs ->
+        val storedProvider = prefs[Keys.llmProvider]
+        val providerRetired = !storedProvider.isNullOrBlank() &&
+            LlmProvider.entries.none { it.name == storedProvider }
+        if (providerRetired) {
+            DefaultLlmValues.defaultModel(defaultLlmProvider)
+        } else {
+            prefs[Keys.modelName] ?: DefaultLlmValues.GLM_MODEL
+        }
+    }
     val currentSessionId: Flow<String> = dataStore.data.map { it[Keys.currentSessionId] ?: DEFAULT_SESSION_ID }
 
     /**
@@ -88,11 +97,6 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
     suspend fun setSystemToolsEnabled(value: Boolean) { dataStore.edit { it[Keys.systemToolsEnabled] = value } }
     suspend fun setLlmProvider(value: LlmProvider) { dataStore.edit { it[Keys.llmProvider] = value.name } }
     suspend fun setModelName(value: String) { dataStore.edit { it[Keys.modelName] = value } }
-    suspend fun setUserPatternsJson(value: String) { dataStore.edit { it[Keys.userPatternsJson] = value } }
-    suspend fun setRecurringTopicsJson(value: String) { dataStore.edit { it[Keys.recurringTopicsJson] = value } }
-    suspend fun setOnboardingCompletedAt(value: String) { dataStore.edit { it[Keys.onboardingCompletedAt] = value } }
-    suspend fun setHealthLastSyncAt(value: Long) { dataStore.edit { it[Keys.healthLastSyncAt] = value } }
-    suspend fun setHealthAutoSyncEnabled(value: Boolean) { dataStore.edit { it[Keys.healthAutoSyncEnabled] = value } }
     suspend fun setCurrentSessionId(value: String) { dataStore.edit { it[Keys.currentSessionId] = value } }
     suspend fun setDreamLoopInterval(value: DreamLoopInterval) {
         dataStore.edit { it[Keys.dreamLoopIntervalMinutes] = value.minutes.toInt() }
@@ -113,12 +117,7 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
         val systemToolsEnabled = booleanPreferencesKey("system_tools_enabled")
         val llmProvider = stringPreferencesKey("llm_provider")
         val modelName = stringPreferencesKey("model_name")
-        val userPatternsJson = stringPreferencesKey("user_patterns_json")
-        val recurringTopicsJson = stringPreferencesKey("recurring_topics_json")
-        val onboardingCompletedAt = stringPreferencesKey("onboarding_completed_at")
         val dreamLoopIntervalMinutes = intPreferencesKey("dream_loop_interval_minutes")
-        val healthLastSyncAt = androidx.datastore.preferences.core.longPreferencesKey("health_last_sync_at")
-        val healthAutoSyncEnabled = booleanPreferencesKey("health_auto_sync_enabled")
         val currentSessionId = stringPreferencesKey("current_session_id")
     }
 

@@ -29,7 +29,6 @@ class CompanionToolRegistry @Inject constructor(
     private val getDeviceStatusTool: GetDeviceStatusTool,
     private val getWeatherTool: GetWeatherTool,
     private val createLocalReminderTool: CreateLocalReminderTool,
-    private val queryHealthDataTool: QueryHealthDataTool,
     private val updateStateTool: UpdateStateTool,
     private val appPreferences: AppPreferences,
 ) : AgentToolRegistry {
@@ -46,7 +45,6 @@ class CompanionToolRegistry @Inject constructor(
             if (policy.allows(ToolMetadataRegistry.getDeviceStatus)) builder.tool(getDeviceStatusTool)
             if (policy.allows(ToolMetadataRegistry.getWeather)) builder.tool(getWeatherTool)
             if (policy.allows(ToolMetadataRegistry.createLocalReminder)) builder.tool(createLocalReminderTool)
-            if (policy.allows(ToolMetadataRegistry.queryHealthData)) builder.tool(queryHealthDataTool)
             if (policy.allows(ToolMetadataRegistry.updateState)) builder.tool(updateStateTool)
         }
         return builder.build()

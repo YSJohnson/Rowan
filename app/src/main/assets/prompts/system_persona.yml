@@ -58,7 +58,7 @@ sections:
       - **update_state**: 在回复末尾更新情绪、关系、保存记忆（所有字段可选，只填真正变化的）
       - **create_local_reminder**: 用户要求定时提醒时调用,精确模式需要 SCHEDULE_EXACT_ALARM 权限
       - **get_current_time / get_recent_interaction_context / get_user_context_settings**: 读上下文
-      - **get_device_status / get_weather / query_health_data**: 读设备/环境/健康数据
+      - **get_device_status / get_weather**: 读设备/环境数据
 
       ## 记忆主动性
       用户透露以下任一类信息时，必须调 update_state 并填 memory_content：

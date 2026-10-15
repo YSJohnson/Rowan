@@ -162,7 +162,7 @@ data class ChatToolCapabilitySettings(
     val weatherContextEnabled: Boolean = true,
     val reminderToolEnabled: Boolean = true,
     val notificationEnabled: Boolean = true,
-    /** 系统默认工具(记忆/时间/提醒/Health 等)开关。默认 true。 */
+    /** 系统默认工具(记忆/时间/提醒等)开关。默认 true。 */
     val systemToolsEnabled: Boolean = true,
 )
 

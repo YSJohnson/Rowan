@@ -11,7 +11,7 @@ import org.junit.Test
 
 class CompanionToolRegistryTest {
 
-    // 真实工具实例(各自依赖用 relaxed mock 填充),保证 11 个工具名唯一,
+    // 真实工具实例(各自依赖用 relaxed mock 填充),保证 10 个工具名唯一,
     // 避开 Koog ToolRegistry.builder() 的重名检查。
     private val searchMemoryTool = SearchMemoryTool(mockk(relaxed = true))
     private val searchRecordsTool = SearchRecordsTool(
@@ -43,10 +43,6 @@ class CompanionToolRegistryTest {
         permissionReader = mockk(relaxed = true),
         reminderRepository = mockk(relaxed = true),
     )
-    private val queryHealthDataTool = QueryHealthDataTool(
-        healthSnapshotDao = mockk(relaxed = true),
-        healthConnectDataSource = mockk(relaxed = true),
-    )
     private val updateStateTool = UpdateStateTool(
         emotionMachine = mockk(relaxed = true),
         relationshipModel = mockk(relaxed = true),
@@ -63,7 +59,6 @@ class CompanionToolRegistryTest {
         getDeviceStatusTool = getDeviceStatusTool,
         getWeatherTool = getWeatherTool,
         createLocalReminderTool = createLocalReminderTool,
-        queryHealthDataTool = queryHealthDataTool,
         updateStateTool = updateStateTool,
         appPreferences = appPreferences,
     )
@@ -76,9 +71,8 @@ class CompanionToolRegistryTest {
     fun create_systemToolsEnabled_registersAllBuiltinTools() = runTest {
         val tools = newRegistry(appPrefs(systemTools = true)).create()
 
-        assertEquals(11, tools.tools.size)
+        assertEquals(10, tools.tools.size)
         assertTrue(tools.tools.any { it.name == "search_memory" })
-        assertTrue(tools.tools.any { it.name == "query_health_data" })
         assertTrue(tools.tools.any { it.name == "update_state" })
     }
 
@@ -94,7 +88,7 @@ class CompanionToolRegistryTest {
         val tools = newRegistry(appPrefs(systemTools = true))
             .createForQuery("帮我看看附近的天气", requiredToolNames = setOf("get_weather"))
 
-        assertEquals(11, tools.tools.size)
+        assertEquals(10, tools.tools.size)
         assertTrue(tools.tools.any { it.name == "get_weather" })
     }
 

@@ -87,7 +87,6 @@ object ToolMetadataRegistry {
     val getUserContextSettings = ToolMetadata("get_user_context_settings", ToolCategory.READ_CONTEXT, ToolRiskLevel.LOW)
     val getDeviceStatus = ToolMetadata("get_device_status", ToolCategory.READ_CONTEXT, ToolRiskLevel.LOW)
     val getWeather = ToolMetadata("get_weather", ToolCategory.READ_CONTEXT, ToolRiskLevel.LOW)
-    val queryHealthData = ToolMetadata("query_health_data", ToolCategory.READ_CONTEXT, ToolRiskLevel.LOW)
     val updateState = ToolMetadata("update_state", ToolCategory.LOCAL_WRITE, ToolRiskLevel.MEDIUM)
     val createLocalReminder = ToolMetadata("create_local_reminder", ToolCategory.LOCAL_WRITE, ToolRiskLevel.MEDIUM)
 }

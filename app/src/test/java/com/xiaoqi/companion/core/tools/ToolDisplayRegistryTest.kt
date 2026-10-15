@@ -34,8 +34,8 @@ class ToolDisplayRegistryTest {
         assertEquals("工具失败", registry.label("unknown", ToolCallStatus.FAILED))
     }
     @Test
-    fun label_coversSummaryAndHealthTools() {
+    fun label_coversSummaryTools() {
         assertEquals("回顾摘要中", registry.label("search_summaries", ToolCallStatus.STARTED))
-        assertEquals("已读取健康数据", registry.label("query_health_data", ToolCallStatus.SUCCEEDED))
+        assertEquals("已读取", registry.label("get_device_status", ToolCallStatus.SUCCEEDED))
     }
 }

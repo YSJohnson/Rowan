@@ -2,14 +2,12 @@ package com.xiaoqi.companion
 
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.work.Configuration
 import com.xiaoqi.companion.core.config.DebugConfigSeeder
 import com.xiaoqi.companion.core.logging.AppLogger
 import com.xiaoqi.companion.core.presence.runtime.DreamLoopScheduler
 import com.xiaoqi.companion.core.prompt.templates.SystemPersona
 import com.xiaoqi.companion.core.pulse.PulseScheduler
-import com.xiaoqi.companion.data.source.HealthSyncLifecycleObserver
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -28,9 +26,6 @@ class CompanionApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var pulseScheduler: PulseScheduler
-
-    @Inject
-    lateinit var healthSyncObserver: HealthSyncLifecycleObserver
 
     @Inject
     lateinit var debugConfigSeeder: DebugConfigSeeder
@@ -52,9 +47,6 @@ class CompanionApplication : Application(), Configuration.Provider {
         dreamLoopScheduler.start()
         // T6 主动关怀：默认开启(240min 检查一次)，用户可在设置页关掉；start() 幂等且会跟随偏好变化重排。
         pulseScheduler.start()
-        // M7 Health Connect: 冷启动 + 进入前台时自动同步(尊重 DataStore 偏好 + 30 分钟防抖)
-        ProcessLifecycleOwner.get().lifecycle.addObserver(healthSyncObserver)
-        healthSyncObserver.onColdStart()
     }
 
     override val workManagerConfiguration: Configuration

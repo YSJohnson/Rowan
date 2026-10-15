@@ -117,8 +117,6 @@ class ChatViewModelTest {
             every { reminderToolEnabled } returns flowOf(true)
             every { notificationEnabled } returns flowOf(true)
             every { systemToolsEnabled } returns flowOf(true)
-            every { healthAutoSyncEnabled } returns flowOf(true)
-            every { healthLastSyncAt } returns flowOf(0L)
             every { currentSessionId } returns flowOf("default")
         }
 
@@ -203,14 +201,11 @@ class ChatViewModelTest {
                 every { lastSuccessAtMs } returns kotlinx.coroutines.flow.MutableStateFlow(0L)
                 every { lastSuccessSavedCount } returns kotlinx.coroutines.flow.MutableStateFlow(0)
             },
-            healthSyncManager = io.mockk.mockk(relaxed = true),
             conversationRepository = conversationRepository,
             insightExecutor = insightExecutor,
             chatModeHolder = com.xiaoqi.companion.core.companion.ChatModeHolder(),
             chatModePreferenceStore = io.mockk.mockk(relaxed = true),
             pulsePreferences = io.mockk.mockk(relaxed = true),
-            healthConnectDataSource = io.mockk.mockk(relaxed = true),
-            sensorHealthSource = io.mockk.mockk(relaxed = true),
         )
     }
 
@@ -445,14 +440,11 @@ class ChatViewModelTest {
                 every { lastSuccessAtMs } returns kotlinx.coroutines.flow.MutableStateFlow(0L)
                 every { lastSuccessSavedCount } returns kotlinx.coroutines.flow.MutableStateFlow(0)
             },
-            healthSyncManager = io.mockk.mockk(relaxed = true),
             conversationRepository = conversationRepository,
             insightExecutor = insightExecutor,
             chatModeHolder = com.xiaoqi.companion.core.companion.ChatModeHolder(),
             chatModePreferenceStore = io.mockk.mockk(relaxed = true),
             pulsePreferences = io.mockk.mockk(relaxed = true),
-            healthConnectDataSource = io.mockk.mockk(relaxed = true),
-            sensorHealthSource = io.mockk.mockk(relaxed = true),
         )
         advanceUntilIdle()
 
