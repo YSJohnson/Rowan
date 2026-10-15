@@ -1,5 +1,6 @@
 package com.xiaoqi.companion.core.tools.parser
 
+import com.xiaoqi.companion.core.search.WebSearchBackend
 import com.xiaoqi.companion.core.tools.ToolEnvelope
 import com.xiaoqi.companion.core.tools.isError
 import com.xiaoqi.companion.core.tools.parseErrorHint
@@ -100,10 +101,14 @@ class ToolCallResultParser @Inject constructor() {
     }
 
     private fun parseWebSearch(data: JsonObject): ToolResultSummary {
+        // 标题带上实际使用的后端：自动模式下用户看不出走的是哪家，结果不理想时无从判断该改什么。
+        val backendLabel = data.str("backend")
+            ?.let { name -> WebSearchBackend.entries.firstOrNull { it.name == name }?.label }
+        val title = if (backendLabel != null) "联网搜索 · $backendLabel" else "联网搜索"
         val count = data.int("resultCount") ?: data.arrayAt("results").size
-        if (count == 0) return ToolResultSummary.Empty(title = "联网搜索")
+        if (count == 0) return ToolResultSummary.Empty(title = title)
         val items = data.arrayAt("results").mapNotNull { it.asObject().str("title") }
-        return ToolResultSummary.ListHits(title = "联网搜索", count = count, items = items)
+        return ToolResultSummary.ListHits(title = title, count = count, items = items)
     }
 
     private fun parseSaveMemory(data: JsonObject): ToolResultSummary {

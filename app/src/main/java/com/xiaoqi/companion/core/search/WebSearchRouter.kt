@@ -15,15 +15,20 @@ data class WebSearchResponse(
 /**
  * 选后端 + 兜底。
  *
- * 规则：优先用用户在设置里选的后端；它没配密钥就按 [FALLBACK_ORDER] 依次退到别的后端，
- * 全都没配才报 `search_not_configured`。这样"默认值 GLM 但用户其实只填了 Tavily"这种
- * 配置也能直接搜，不必先让用户去改设置。
+ * [WebSearchBackend.AUTO]（默认）按 [FALLBACK_ORDER] 取第一个可用的：有密钥的后端排在前面
+ * （结果质量更好），免密钥的 Bing 排最后兜底 —— 所以**默认状态下永远能搜**，用户不需要
+ * 先配好任何东西。这也是原来那个 bug 的根因修复：以前默认值是"智谱"，而用 DeepSeek 的
+ * 用户没有智谱密钥，三个后端全不可用，搜索直接失败。
+ *
+ * 用户显式选了某个后端时，仍然优先用它，不可用才往后退；这样"选了 Tavily 但密钥填错"
+ * 也能退到能用的后端，而不是整个功能报错。
  */
 @Singleton
 class WebSearchRouter @Inject constructor(
     private val glmProvider: GlmWebSearchProvider,
     private val tavilyProvider: TavilyWebSearchProvider,
     private val serperProvider: SerperWebSearchProvider,
+    private val bingProvider: BingWebSearchProvider,
     private val appPreferences: AppPreferences,
 ) {
 
@@ -31,6 +36,7 @@ class WebSearchRouter @Inject constructor(
         WebSearchBackend.GLM to glmProvider,
         WebSearchBackend.TAVILY to tavilyProvider,
         WebSearchBackend.SERPER to serperProvider,
+        WebSearchBackend.BING to bingProvider,
     )
 
     suspend fun search(query: String, maxResults: Int): WebSearchResponse {
@@ -41,14 +47,17 @@ class WebSearchRouter @Inject constructor(
             )
         }
         val preferred = appPreferences.webSearchBackend.first()
-        val ordered = listOf(preferred) + FALLBACK_ORDER.filterNot { it == preferred }
+        val ordered = if (preferred == WebSearchBackend.AUTO) {
+            FALLBACK_ORDER
+        } else {
+            listOf(preferred) + FALLBACK_ORDER.filterNot { it == preferred }
+        }
         val provider = ordered.firstOrNull { providers.getValue(it).isConfigured() }
             ?: throw WebSearchException(
                 reason = "search_not_configured",
-                hint = "没有任何可用的搜索后端。请让用户到「设置 > 云端接入」填 GLM 密钥，" +
-                    "或到「设置 > 联网搜索」选一个后端并填密钥。",
+                hint = "没有任何可用的搜索后端。请让用户到「设置 > 联网搜索」检查配置。",
             )
-        if (provider != preferred) {
+        if (provider != preferred && preferred != WebSearchBackend.AUTO) {
             AppLogger.info(
                 LogTags.Tools,
                 "web_search_backend_fallback",
@@ -63,7 +72,15 @@ class WebSearchRouter @Inject constructor(
     }
 
     private companion object {
-        /** 用户选的后端不可用时依次尝试的顺序。GLM 放最前：它复用对话密钥，命中率最高。 */
-        val FALLBACK_ORDER = listOf(WebSearchBackend.GLM, WebSearchBackend.TAVILY, WebSearchBackend.SERPER)
+        /**
+         * 有密钥的后端在前（结果质量更好），免密钥的 Bing 兜底。
+         * GLM 排在 Tavily 之前，因为它的密钥通常已经因为对话配置而存在。
+         */
+        val FALLBACK_ORDER = listOf(
+            WebSearchBackend.GLM,
+            WebSearchBackend.TAVILY,
+            WebSearchBackend.SERPER,
+            WebSearchBackend.BING,
+        )
     }
 }

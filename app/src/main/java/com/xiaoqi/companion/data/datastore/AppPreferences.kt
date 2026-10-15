@@ -42,12 +42,14 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
     val webSearchEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.webSearchEnabled] ?: true }
 
     /**
-     * 联网搜索后端。反解失败一律回 [WebSearchBackend.GLM] —— 它复用对话密钥，
-     * 是唯一"用户什么都不用额外配"的选项。
+     * 联网搜索后端。默认 [WebSearchBackend.AUTO]，反解失败也回 AUTO。
+     *
+     * AUTO 会按"有密钥的优先、免密钥的兜底"自动挑，所以用户不配任何东西也能搜 ——
+     * 之前的默认值是写死"智谱"，用 DeepSeek 的人没有智谱密钥，搜索直接失败。
      */
     val webSearchBackend: Flow<WebSearchBackend> = dataStore.data.map {
         val stored = it[Keys.webSearchBackend]
-        WebSearchBackend.entries.firstOrNull { backend -> backend.name == stored } ?: WebSearchBackend.GLM
+        WebSearchBackend.entries.firstOrNull { backend -> backend.name == stored } ?: WebSearchBackend.AUTO
     }
 
     /** Tavily / Serper 用的独立密钥；GLM 后端不读它。 */

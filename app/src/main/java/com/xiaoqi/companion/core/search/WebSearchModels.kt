@@ -3,13 +3,19 @@ package com.xiaoqi.companion.core.search
 /**
  * 联网搜索的后端。
  *
- * [GLM] 复用对话用的智谱密钥（同一账号的 Web Search API），用户不需要额外申请 ——
- * 这是默认值，保证"装了就能搜"。另两个需要单独申请密钥。
+ * [AUTO] 是默认值：按"优先用已配置的密钥、否则用免密钥"的顺序自动挑一个，保证**零配置就能搜**。
+ * 用户想固定某一个后端时再显式选。
+ *
+ * - [GLM] 复用对话用的智谱密钥（同一账号的 Web Search API），配了 GLM 密钥的人不必额外申请。
+ * - [TAVILY] / [SERPER] 需要各自申请密钥，结果质量最好（[usesDedicatedKey]）。
+ * - [BING] 免密钥，抓取 cn.bing.com 结果页。可用性不依赖任何账号，代价是依赖页面结构。
  */
-enum class WebSearchBackend {
-    GLM,
-    TAVILY,
-    SERPER,
+enum class WebSearchBackend(val label: String, val usesDedicatedKey: Boolean) {
+    AUTO("自动", usesDedicatedKey = false),
+    GLM("智谱", usesDedicatedKey = false),
+    TAVILY("Tavily", usesDedicatedKey = true),
+    SERPER("Serper", usesDedicatedKey = true),
+    BING("必应", usesDedicatedKey = false),
 }
 
 data class WebSearchResult(

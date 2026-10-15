@@ -21,9 +21,10 @@ class WebSearchRouterTest {
     private val glm = mockk<GlmWebSearchProvider>()
     private val tavily = mockk<TavilyWebSearchProvider>()
     private val serper = mockk<SerperWebSearchProvider>()
+    private val bing = mockk<BingWebSearchProvider>()
     private val appPreferences = mockk<AppPreferences>(relaxed = true)
 
-    private fun router() = WebSearchRouter(glm, tavily, serper, appPreferences)
+    private fun router() = WebSearchRouter(glm, tavily, serper, bing, appPreferences)
 
     private fun prefs(enabled: Boolean, backend: WebSearchBackend) {
         every { appPreferences.webSearchEnabled } returns flowOf(enabled)
@@ -57,11 +58,44 @@ class WebSearchRouterTest {
     }
 
     @Test
-    fun `reports not configured when no backend has a key`() = runTest {
-        prefs(enabled = true, backend = WebSearchBackend.GLM)
+    fun `auto mode picks the first backend that has a key`() = runTest {
+        prefs(enabled = true, backend = WebSearchBackend.AUTO)
+        coEvery { glm.isConfigured() } returns false
+        coEvery { tavily.isConfigured() } returns true
+        coEvery { tavily.search(any(), any()) } returns emptyList()
+
+        val response = router().search("query", 5)
+
+        assertEquals(WebSearchBackend.TAVILY, response.backend)
+        coVerify(exactly = 0) { bing.search(any(), any()) }
+    }
+
+    /**
+     * 这条是本次线上问题的回归测试：用 DeepSeek 的用户没有任何搜索密钥，
+     * 旧默认值写死"智谱"会导致搜索整个失败；现在应自动落到免密钥的必应。
+     */
+    @Test
+    fun `auto mode falls back to key-free bing when no key is configured`() = runTest {
+        prefs(enabled = true, backend = WebSearchBackend.AUTO)
         coEvery { glm.isConfigured() } returns false
         coEvery { tavily.isConfigured() } returns false
         coEvery { serper.isConfigured() } returns false
+        coEvery { bing.isConfigured() } returns true
+        coEvery { bing.search(any(), any()) } returns listOf(WebSearchResult("t", "u", "s"))
+
+        val response = router().search("query", 5)
+
+        assertEquals(WebSearchBackend.BING, response.backend)
+        assertEquals(1, response.results.size)
+    }
+
+    @Test
+    fun `reports not configured when even the key-free backend is unavailable`() = runTest {
+        prefs(enabled = true, backend = WebSearchBackend.AUTO)
+        coEvery { glm.isConfigured() } returns false
+        coEvery { tavily.isConfigured() } returns false
+        coEvery { serper.isConfigured() } returns false
+        coEvery { bing.isConfigured() } returns false
 
         val error = runCatching { router().search("query", 5) }.exceptionOrNull()
 
@@ -70,11 +104,12 @@ class WebSearchRouterTest {
 
     @Test
     fun `does not probe any backend when search is switched off`() = runTest {
-        prefs(enabled = false, backend = WebSearchBackend.GLM)
+        prefs(enabled = false, backend = WebSearchBackend.AUTO)
 
         val error = runCatching { router().search("query", 5) }.exceptionOrNull()
 
         assertEquals("search_disabled", (error as WebSearchException).reason)
         coVerify(exactly = 0) { glm.isConfigured() }
+        coVerify(exactly = 0) { bing.isConfigured() }
     }
 }

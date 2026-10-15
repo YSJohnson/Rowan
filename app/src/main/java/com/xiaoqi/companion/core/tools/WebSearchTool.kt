@@ -72,6 +72,7 @@ class WebSearchTool @Inject constructor(
                 ToolEnvelopeFactory.ok(
                     buildJsonObject {
                         put("query", query)
+                        put("backend", response.backend.name)
                         put("resultCount", response.results.size)
                         putJsonArray("results") {
                             response.results.forEach { result ->
