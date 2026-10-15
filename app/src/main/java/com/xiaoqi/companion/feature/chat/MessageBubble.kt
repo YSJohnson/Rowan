@@ -87,7 +87,13 @@ fun MessageBubble(
 ) {
     val context = LocalContext.current
     val isUser = message.role == "USER"
-    val contentColor = if (isUser) Color(0xFF20362F) else MaterialTheme.colorScheme.onSurface
+    // 用户气泡底色是品牌紫的容器色,正文必须用 onPrimaryContainer:
+    // 旧值 Color(0xFF20362F) 是绿气泡时代的深绿字,压在紫底上又脏又低对比。
+    val contentColor = if (isUser) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
     var menuExpanded by remember(message.id) { mutableStateOf(false) }
     val canShowActions = message.content.isNotBlank() && !message.isStreaming
     val copyMessage = {
@@ -110,10 +116,10 @@ fun MessageBubble(
                     color = ChatColors.BubbleUser,
                     tonalElevation = 0.dp,
                     shape = RoundedCornerShape(
-                        topStart = 20.dp,
-                        topEnd = 20.dp,
-                        bottomEnd = 6.dp,
-                        bottomStart = 18.dp,
+                        topStart = 22.dp,
+                        topEnd = 22.dp,
+                        bottomEnd = 8.dp,
+                        bottomStart = 22.dp,
                     ),
                     modifier = Modifier
                         .widthIn(max = 312.dp)
