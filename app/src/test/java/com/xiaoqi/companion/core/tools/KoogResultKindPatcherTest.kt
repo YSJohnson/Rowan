@@ -26,7 +26,7 @@ class KoogResultKindPatcherTest {
     }
 
     @Test
-    fun isErrorResult_acceptsSuccessfulPlainMcpPayload() {
+    fun isErrorResult_acceptsSuccessfulPlainPayload() {
         assertTrue(!received(content = "{\"pois\":[]}").isErrorResult())
     }
 

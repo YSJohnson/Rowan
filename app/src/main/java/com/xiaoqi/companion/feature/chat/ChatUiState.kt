@@ -3,7 +3,6 @@ package com.xiaoqi.companion.feature.chat
 import com.xiaoqi.companion.core.companion.ChatMode
 import com.xiaoqi.companion.core.companion.model.ToolCallStatus
 import com.xiaoqi.companion.core.llm.ConnectivityResult
-import com.xiaoqi.companion.core.mcp.McpServerConfig
 import com.xiaoqi.companion.core.presence.PresenceAnimationState
 import com.xiaoqi.companion.core.presence.PresenceReaction
 import com.xiaoqi.companion.core.presence.PresenceUiState
@@ -163,12 +162,8 @@ data class ChatToolCapabilitySettings(
     val weatherContextEnabled: Boolean = true,
     val reminderToolEnabled: Boolean = true,
     val notificationEnabled: Boolean = true,
-    /** MCP 总开关。默认 true,关掉后所有 MCP server 的工具都不注册。 */
-    val mcpEnabled: Boolean = true,
     /** 系统默认工具(记忆/时间/提醒/Health 等)开关。默认 true。 */
     val systemToolsEnabled: Boolean = true,
-    /** 多 MCP server 列表 — 替代老的单 server 字段 (mcpProviderId/mcpApiKey/mcpServerName/mcpHttpUrl)。 */
-    val mcpServers: List<McpServerConfig> = emptyList(),
 )
 
 data class ChatImageAttachment(
@@ -221,20 +216,6 @@ data class ChatUiState(
     val settingsProvider: LlmProvider = LlmProvider.GLM,
     val settingsModelName: String = DefaultLlmValues.GLM_MODEL,
     val settingsMessage: String? = null,
-    val mcpSettingsName: String = "",
-    val mcpSettingsUrl: String = "",
-    val mcpSettingsProviderId: String = "amap",
-    val mcpSettingsApiKey: String = "",
-    val mcpSettingsAuthToken: String = "",
-    val mcpSettingsKeyVisible: Boolean = false,
-    /** 当前 editor 正在编辑的 server id;null = 新建。 */
-    val mcpEditingServerId: String? = null,
-    val mcpSettingsMessage: String? = null,
-    /**
-     * 一次性"已保存"事件,每次 saveMcpSettings 成功时 +1。UI 用 [LaunchedEffect] 监听
-     * 这个字段的变化来切回 list 模式 + 展示 snackbar。仅作信号用,UI 不要按它的值做业务判断。
-     */
-    val mcpEditorJustSaved: Long = 0L,
     /**
      * 一次性"已清空"事件,清空 insights / memories / mood_snapshots 成功时写入
      * (timestamp, count) 元组。UI 用 [LaunchedEffect] 监听 timestamp 弹 snackbar;
@@ -250,17 +231,7 @@ data class ChatUiState(
     val permissionPrompt: ChatPermissionPrompt? = null,
     val error: String? = null,
     val connectivityResult: ConnectivityResult? = null,
-    val mcpConnectivityResult: ConnectivityResult? = null,
     val isCheckingConnectivity: Boolean = false,
-    /**
-     * 上次 probe 后缓存的每个 server 的 tool 名列表,key = server id。
-     * McpListScreen 卡片展开时用它显示该 server 提供的具体工具。
-     * 值为 emptyList 表示"已探但 0 个 tool"(实际不应该)或"探失败"(见 isCheckingConnectivity)。
-     * 整个 key 不在 map 里表示"还没探过"。
-     */
-    val mcpServerTools: Map<String, List<String>> = emptyMap(),
-    /** 上次连接检查中每个 server 的可读失败原因；成功后会移除对应项。 */
-    val mcpServerErrors: Map<String, String> = emptyMap(),
     val insights: List<ChatInsight> = emptyList(),
     /** 云端模型是否正在分析对话生成洞察(首页显示"正在思考..."指示器) */
     val isInsightAnalyzing: Boolean = false,

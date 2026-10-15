@@ -26,8 +26,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Smartphone
@@ -36,7 +34,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
@@ -129,7 +126,6 @@ internal data class SettingsScreenActions(
     val onWeatherContextEnabledChanged: (Boolean) -> Unit,
     val onReminderToolEnabledChanged: (Boolean) -> Unit,
     val onNotificationEnabledChanged: (Boolean) -> Unit,
-    val onMcpEnabledChanged: (Boolean) -> Unit,
     val onSystemToolsEnabledChanged: (Boolean) -> Unit,
     val onDreamLoopIntervalChanged: (DreamLoopInterval) -> Unit,
     val onTriggerDreamLoopNow: () -> Unit,
@@ -138,14 +134,12 @@ internal data class SettingsScreenActions(
     val onHealthSyncNow: () -> Unit,
     val onPulseEnabledChanged: (Boolean) -> Unit,
     val onPulseIntervalChanged: (Int) -> Unit,
-    val onOpenMcpSettings: () -> Unit,
     val onBack: () -> Unit,
 ) {
     companion object {
         fun from(
             viewModel: ChatViewModel,
             onRequestContextPermissions: () -> Unit,
-            onOpenMcpSettings: () -> Unit,
             onBack: () -> Unit,
             onPulseEnabledChanged: (Boolean) -> Unit,
             onPulseIntervalChanged: (Int) -> Unit,
@@ -164,7 +158,6 @@ internal data class SettingsScreenActions(
             onWeatherContextEnabledChanged = viewModel::setWeatherContextEnabled,
             onReminderToolEnabledChanged = viewModel::setReminderToolEnabled,
             onNotificationEnabledChanged = viewModel::setNotificationEnabled,
-            onMcpEnabledChanged = viewModel::setMcpEnabled,
             onSystemToolsEnabledChanged = viewModel::setSystemToolsEnabled,
             onDreamLoopIntervalChanged = viewModel::setDreamLoopInterval,
             onTriggerDreamLoopNow = viewModel::triggerDreamLoopNow,
@@ -173,7 +166,6 @@ internal data class SettingsScreenActions(
             onHealthSyncNow = viewModel::triggerHealthSyncNow,
             onPulseEnabledChanged = onPulseEnabledChanged,
             onPulseIntervalChanged = onPulseIntervalChanged,
-            onOpenMcpSettings = onOpenMcpSettings,
             onBack = onBack,
         )
     }
@@ -208,7 +200,6 @@ private fun rememberPulsePreferences(): PulsePreferences {
 fun SettingsScreen(
     viewModel: ChatViewModel,
     onBack: () -> Unit,
-    onOpenMcpSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val dreamLoopInterval by viewModel.dreamLoopInterval.collectAsStateWithLifecycle()
@@ -254,7 +245,6 @@ fun SettingsScreen(
             onRequestContextPermissions = {
                 contextPermissionLauncher.launch(contextPermissions())
             },
-            onOpenMcpSettings = onOpenMcpSettings,
             onBack = onBack,
             // 改完偏好不用碰 PulseScheduler:它的 collector 在监听同一个 Flow,会自动重排
             onPulseEnabledChanged = { enabled ->
@@ -346,11 +336,6 @@ private fun SettingsScreenContent(
                 onNavigationClick = actions.onBack,
                 actionText = "保存",
                 onActionClick = actions.onSave,
-                extraActions = {
-                    IconButton(onClick = actions.onOpenMcpSettings) {
-                        Icon(Icons.Default.Build, contentDescription = "MCP 设置")
-                    }
-                },
             )
         },
     ) { padding ->
@@ -606,25 +591,6 @@ private fun LazyListScope.settingsCapabilitiesPage(
                 enabled = false,
                 locked = true,
                 onCheckedChange = {},
-            )
-            DividerSpacer()
-            SettingsToggleRow(
-                title = "MCP",
-                detail = if (state.toolSettings.mcpServers.firstOrNull { it.isReady } == null)
-                    "未配置（缺密钥/地址）"
-                else
-                    state.toolSettings.mcpServers.firstOrNull { it.isReady }?.resolvedName.orEmpty(),
-                meta = "高级",
-                metaIcon = Icons.Outlined.Bolt,
-                checked = state.toolSettings.mcpEnabled && state.toolSettings.mcpServers.any { it.isReady },
-                statusDotColor = if (state.toolSettings.mcpEnabled &&
-                    state.toolSettings.mcpServers.any { it.enabled && it.isReady }
-                ) {
-                    ChatStatusColors.SuccessDot
-                } else {
-                    ChatStatusColors.Unknown
-                },
-                onCheckedChange = actions.onMcpEnabledChanged,
             )
         }
     }

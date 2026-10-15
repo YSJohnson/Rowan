@@ -26,7 +26,6 @@ import com.xiaoqi.companion.feature.chat.RowanHomeScreen
 import com.xiaoqi.companion.feature.chat.RowanMotion
 import com.xiaoqi.companion.feature.chat.ChatScreen
 import com.xiaoqi.companion.feature.chat.ChatViewModel
-import com.xiaoqi.companion.feature.chat.McpSettingsScreen
 import com.xiaoqi.companion.feature.chat.MemoryRoomScreen
 import com.xiaoqi.companion.feature.chat.SettingsScreen
 import com.xiaoqi.companion.feature.onboarding.OnboardingScreen
@@ -54,7 +53,6 @@ private object RowanRoutes {
     const val Home = "home"
     const val Chat = "chat"
     const val Settings = "settings"
-    const val McpSettings = "settings/mcp"
     const val MemoryRoom = "memory-room"
     const val Onboarding = "onboarding"
 }
@@ -104,10 +102,6 @@ private fun RowanAppNavHost(
                     navController.navigate(RowanRoutes.Settings)
                 },
                 onOpenMemoryRoom = { navController.navigate(RowanRoutes.MemoryRoom) },
-                onOpenMcpSettings = {
-                    viewModel.prepareMcpSettings()
-                    navController.navigate(RowanRoutes.McpSettings)
-                },
             )
         }
         composable(RowanRoutes.Chat) {
@@ -118,24 +112,10 @@ private fun RowanAppNavHost(
                     viewModel.prepareSettings()
                     navController.navigate(RowanRoutes.Settings)
                 },
-                onOpenMcpSettings = {
-                    viewModel.prepareMcpSettings()
-                    navController.navigate(RowanRoutes.McpSettings)
-                },
             )
         }
         composable(RowanRoutes.Settings) {
             SettingsScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-                onOpenMcpSettings = {
-                    viewModel.prepareMcpSettings()
-                    navController.navigate(RowanRoutes.McpSettings)
-                },
-            )
-        }
-        composable(RowanRoutes.McpSettings) {
-            McpSettingsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
             )

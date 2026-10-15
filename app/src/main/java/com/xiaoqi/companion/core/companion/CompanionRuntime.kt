@@ -77,13 +77,11 @@ open class CompanionRuntime @Inject constructor(
             val config = configRepository.getCurrentLlmConfig().first()
             val providerCapabilities = ProviderCapabilityRegistry.forProvider(config.provider)
             val systemToolsEnabled = appPreferences.systemToolsEnabled.first()
-            val mcpEnabled = appPreferences.mcpEnabled.first()
             val turnDecision = agentTurnPolicy.decide(
                 input = input,
                 config = config,
                 providerCapabilities = providerCapabilities,
                 systemToolsEnabled = systemToolsEnabled,
-                mcpEnabled = mcpEnabled,
             )
             AppLogger.debug(
                 LogTags.Runtime,

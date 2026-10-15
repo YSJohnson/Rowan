@@ -31,7 +31,6 @@ class AgentTurnPolicy @Inject constructor() {
         config: LlmConfig,
         providerCapabilities: ProviderCapabilities = ProviderCapabilityRegistry.forProvider(config.provider),
         systemToolsEnabled: Boolean = true,
-        mcpEnabled: Boolean = true,
     ): AgentTurnDecision {
         if (input is UserInput.Vision) {
             return AgentTurnDecision(
@@ -52,12 +51,7 @@ class AgentTurnPolicy @Inject constructor() {
         }
 
         val basePolicy = providerCapabilities.defaultToolPolicy
-        val effectivePolicy = when {
-            !systemToolsEnabled && !mcpEnabled -> ToolPolicy.none
-            systemToolsEnabled && mcpEnabled -> basePolicy
-            systemToolsEnabled -> ToolPolicy.systemOnly
-            else -> ToolPolicy.readOnly
-        }
+        val effectivePolicy = if (systemToolsEnabled) basePolicy else ToolPolicy.none
         return AgentTurnDecision(
             mode = if (effectivePolicy.allowTools) AgentTurnMode.CHAT_WITH_LOCAL_TOOLS else AgentTurnMode.CHAT_ONLY,
             toolPolicy = effectivePolicy,

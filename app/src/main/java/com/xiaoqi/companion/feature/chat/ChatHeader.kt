@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
@@ -29,7 +28,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -48,11 +46,8 @@ import com.xiaoqi.companion.data.db.converter.LlmProvider
 import com.xiaoqi.companion.ui.theme.ChatStatusColors
 
 /**
- * 聊天页顶栏:头像 + 标题 + 状态动画点 + Memory/Reminders/MCP/Settings 入口按钮,
+ * 聊天页顶栏:头像 + 标题 + 状态动画点 + Conversations/Memory/Reminders/Settings 入口按钮,
  * 以及模型未就绪时的 [ConfigStatusCard] 提示。
- *
- * 配套扩展:
- * - [ChatToolCapabilitySettings.mcpDisplayLabel]:MCP 入口按钮文案
  */
 @Composable
 internal fun CompanionHeader(
@@ -63,8 +58,6 @@ internal fun CompanionHeader(
     chatMode: ChatMode,
     memories: List<ChatMemory>,
     reminders: List<ChatReminder>,
-    toolSettings: ChatToolCapabilitySettings,
-    mcpServerTools: Map<String, List<String>>,
     isLoading: Boolean = false,
     latestActivity: String? = null,
     hasError: Boolean = false,
@@ -73,12 +66,10 @@ internal fun CompanionHeader(
     onOpenMemoryRoom: () -> Unit,
     onOpenReminders: () -> Unit,
     onOpenConversations: () -> Unit,
-    onOpenMcpSettings: () -> Unit,
     onOpenSettings: () -> Unit,
     onPresenceTapped: () -> Unit,
 ) {
     val scheduledReminderCount = reminders.count { it.status == "SCHEDULED" }
-    val mcpState = resolveHeaderMcpState(toolSettings, mcpServerTools)
     val statusText = resolveCompanionHeaderStatus(
         isConfigReady = configStatus.isReady,
         isLoading = isLoading,
@@ -190,12 +181,6 @@ internal fun CompanionHeader(
                 onClick = onOpenReminders,
             )
             HeaderCapabilityAction(
-                imageVector = Icons.Default.Build,
-                contentDescription = mcpState.contentDescription,
-                onClick = onOpenMcpSettings,
-                tone = mcpState.tone,
-            )
-            HeaderCapabilityAction(
                 imageVector = Icons.Default.Settings,
                 contentDescription = "打开设置",
                 onClick = onOpenSettings,
@@ -224,53 +209,17 @@ internal fun resolveCompanionHeaderStatus(
     else -> presenceLabel.removePrefix("Rowan ").ifBlank { "在这里" }
 }
 
-internal enum class HeaderCapabilityTone { NEUTRAL, ACTIVE, SUCCESS, WARNING }
-
-internal enum class HeaderMcpState(
-    val label: String,
-    val contentDescription: String,
-    val tone: HeaderCapabilityTone,
-) {
-    DISABLED("MCP", "打开 MCP，当前已关闭", HeaderCapabilityTone.NEUTRAL),
-    NEEDS_SETUP("MCP", "打开 MCP，当前配置异常", HeaderCapabilityTone.WARNING),
-    ACTIVE("MCP", "打开 MCP，等待连接检查", HeaderCapabilityTone.ACTIVE),
-    READY("MCP", "打开 MCP，当前已连接", HeaderCapabilityTone.SUCCESS),
-}
-
-internal fun resolveHeaderMcpState(
-    settings: ChatToolCapabilitySettings,
-    discoveredTools: Map<String, List<String>>,
-): HeaderMcpState {
-    val enabledServers = settings.mcpServers.filter { it.enabled }
-    if (!settings.mcpEnabled || enabledServers.isEmpty()) return HeaderMcpState.DISABLED
-    if (enabledServers.any { !it.isReady }) return HeaderMcpState.NEEDS_SETUP
-    val testedServers = enabledServers.filter { it.id in discoveredTools }
-    if (testedServers.any { discoveredTools[it.id].isNullOrEmpty() }) return HeaderMcpState.NEEDS_SETUP
-    if (testedServers.any { discoveredTools[it.id].orEmpty().isNotEmpty() }) return HeaderMcpState.READY
-    return HeaderMcpState.ACTIVE
-}
-
 @Composable
 private fun HeaderCapabilityAction(
     imageVector: ImageVector,
     onClick: () -> Unit,
     contentDescription: String,
     count: Int = 0,
-    tone: HeaderCapabilityTone = HeaderCapabilityTone.NEUTRAL,
     hasAlert: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val containerColor = when (tone) {
-        HeaderCapabilityTone.NEUTRAL -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f)
-        HeaderCapabilityTone.ACTIVE -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f)
-        HeaderCapabilityTone.SUCCESS -> Color(0xFFE8F3EA)
-        HeaderCapabilityTone.WARNING -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.68f)
-    }
-    val contentColor = when (tone) {
-        HeaderCapabilityTone.WARNING -> MaterialTheme.colorScheme.onErrorContainer
-        HeaderCapabilityTone.SUCCESS -> Color(0xFF45684E)
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f)
+    val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
     Box(
         modifier = modifier
             .size(48.dp)
@@ -361,14 +310,5 @@ private fun ConfigStatusCard(
                 Text("去设置")
             }
         }
-    }
-}
-
-internal fun ChatToolCapabilitySettings.mcpDisplayLabel(): String {
-    val first = mcpServers.firstOrNull { it.enabled && it.isReady } ?: mcpServers.firstOrNull { it.enabled }
-    return when {
-        first == null -> "MCP"
-        first.displayName.isNotBlank() -> first.displayName
-        else -> first.provider.displayName
     }
 }

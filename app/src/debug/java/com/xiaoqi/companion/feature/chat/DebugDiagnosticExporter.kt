@@ -130,7 +130,7 @@ internal class DebugDiagnosticArchiveWriter {
         const val MAX_ENTRY_CHARS = 512 * 1024
         const val README = """Rowan Debug 诊断包
 
-此压缩包由 Debug APK 主动导出，用于定位功能、网络、LLM 与 MCP 工具问题。
+此压缩包由 Debug APK 主动导出，用于定位功能、网络、LLM 与工具调用问题。
 它包含应用/设备版本摘要、脱敏运行日志，以及存在时的最近一次崩溃日志。
 它不包含 API Key、完整聊天记录、记忆内容或图片。发送前仍建议自行检查文件内容。
 """

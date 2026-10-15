@@ -91,12 +91,6 @@ android {
         buildConfigField("String", "ENV_GLM_API_KEY", "\"\"")
         buildConfigField("String", "ENV_MODELSCOPE_API_KEY", "\"\"")
         buildConfigField("String", "ENV_KIMI_API_KEY", "\"\"")
-        buildConfigField("String", "ENV_MCP_AMAP_KEY", "\"\"")
-        for (i in 1..6) {
-            buildConfigField("String", "ENV_MCP_CUSTOM_${i}_NAME", "\"\"")
-            buildConfigField("String", "ENV_MCP_CUSTOM_${i}_URL", "\"\"")
-            buildConfigField("String", "ENV_MCP_CUSTOM_${i}_TOKEN", "\"\"")
-        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -151,12 +145,6 @@ android {
             buildConfigField("String", "ENV_GLM_API_KEY", "\"${escForBuildConfig(env("GLM_API_KEY"))}\"")
             buildConfigField("String", "ENV_MODELSCOPE_API_KEY", "\"${escForBuildConfig(env("MODELSCOPE_API_KEY"))}\"")
             buildConfigField("String", "ENV_KIMI_API_KEY", "\"${escForBuildConfig(env("KIMI_API_KEY"))}\"")
-            buildConfigField("String", "ENV_MCP_AMAP_KEY", "\"${escForBuildConfig(env("MCP_AMAP_API_KEY"))}\"")
-            for (i in 1..6) {
-                buildConfigField("String", "ENV_MCP_CUSTOM_${i}_NAME", "\"${escForBuildConfig(env("MCP_CUSTOM_${i}_NAME"))}\"")
-                buildConfigField("String", "ENV_MCP_CUSTOM_${i}_URL", "\"${escForBuildConfig(env("MCP_CUSTOM_${i}_URL"))}\"")
-                buildConfigField("String", "ENV_MCP_CUSTOM_${i}_TOKEN", "\"${escForBuildConfig(env("MCP_CUSTOM_${i}_TOKEN"))}\"")
-            }
         }
     }
 

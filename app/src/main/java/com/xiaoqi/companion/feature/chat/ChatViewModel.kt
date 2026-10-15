@@ -13,7 +13,6 @@ import com.xiaoqi.companion.core.insight.InsightPrompts
 import com.xiaoqi.companion.core.logging.AppLogger
 import com.xiaoqi.companion.core.logging.LogTags
 import com.xiaoqi.companion.core.llm.ConnectivityResult
-import com.xiaoqi.companion.core.mcp.RemoteMcpClient
 import com.xiaoqi.companion.core.presence.PresenceController
 import com.xiaoqi.companion.core.presence.PresenceEvent
 import com.xiaoqi.companion.core.presence.PresenceInputs
@@ -34,7 +33,6 @@ import com.xiaoqi.companion.data.db.dao.MoodSnapshotDao
 import com.xiaoqi.companion.data.repository.ConfigRepository
 import com.xiaoqi.companion.data.repository.ConversationRepository
 import com.xiaoqi.companion.data.repository.InsightRepository
-import com.xiaoqi.companion.data.repository.McpServerListRepository
 import com.xiaoqi.companion.data.repository.MemoryRepository
 import com.xiaoqi.companion.data.repository.MessageRepository
 import com.xiaoqi.companion.data.repository.ReminderRepository
@@ -55,23 +53,17 @@ import com.xiaoqi.companion.feature.chat.usecase.SendMessageUseCase
 import com.xiaoqi.companion.feature.chat.usecase.SettingsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -108,8 +100,6 @@ class ChatViewModel @Inject constructor(
     private val reminderRepository: ReminderRepository,
     private val toolDisplayRegistry: ToolDisplayRegistry,
     private val toolCallResultParser: com.xiaoqi.companion.core.tools.parser.ToolCallResultParser,
-    private val remoteMcpClient: RemoteMcpClient,
-    private val mcpServerListRepository: McpServerListRepository,
     private val dreamLoopScheduler: DreamLoopScheduler,
     private val dreamRunObserver: DreamRunObserver,
     private val healthSyncManager: HealthSyncManager,
@@ -231,27 +221,19 @@ class ChatViewModel @Inject constructor(
                     appPreferences.reminderToolEnabled,
                     appPreferences.notificationEnabled,
                 ) { deviceStatus, location, weather, reminder, notification ->
-                    Quintuple(deviceStatus, location, weather, reminder, notification)
+                    ChatToolCapabilitySettings(
+                        deviceStatusEnabled = deviceStatus,
+                        locationContextEnabled = location,
+                        weatherContextEnabled = weather,
+                        reminderToolEnabled = reminder,
+                        notificationEnabled = notification,
+                    )
                 },
-                combine(
-                    appPreferences.mcpEnabled,
-                    appPreferences.systemToolsEnabled,
-                ) { mcp, systemTools -> Pair(mcp, systemTools) },
-                mcpServerListRepository.observeAll,
-            ) { quintuple, toolsPair, mcpServers ->
-                ChatToolCapabilitySettings(
-                    deviceStatusEnabled = quintuple.first,
-                    locationContextEnabled = quintuple.second,
-                    weatherContextEnabled = quintuple.third,
-                    reminderToolEnabled = quintuple.fourth,
-                    notificationEnabled = quintuple.fifth,
-                    mcpEnabled = toolsPair.first,
-                    systemToolsEnabled = toolsPair.second,
-                    mcpServers = mcpServers,
-                )
-            }.collect { settings ->
-                _uiState.update { it.copy(toolCapabilitySettings = settings) }
-            }
+                appPreferences.systemToolsEnabled,
+            ) { settings, systemTools -> settings.copy(systemToolsEnabled = systemTools) }
+                .collect { settings ->
+                    _uiState.update { it.copy(toolCapabilitySettings = settings) }
+                }
         }
 
         viewModelScope.launch {
@@ -701,103 +683,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun checkMcpConnectivity() {
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isCheckingConnectivity = true,
-                    mcpConnectivityResult = null,
-                    mcpServerErrors = emptyMap(),
-                )
-            }
-            // 探测每个 ready server,缓存 tool 列表(含失败空 list)给 McpListScreen 展示。
-            val servers = mcpServerListRepository.readAll()
-            val targets = servers.filter { it.enabled && it.isReady }
-            if (targets.isEmpty()) {
-                val msg = if (servers.isEmpty()) "MCP URL 未配置"
-                else "所有 server 都未就绪 (补 key/URL 或开启 enabled)"
-                _uiState.update {
-                    it.copy(
-                        mcpConnectivityResult = ConnectivityResult.Unreachable(msg),
-                        isCheckingConnectivity = false,
-                    )
-                }
-                return@launch
-            }
-            val startedAt = System.currentTimeMillis()
-            val outcomes = supervisorScope {
-                targets.map { server ->
-                    async {
-                        val probeResult = runCatching {
-                            remoteMcpClient.probe(server.resolvedUrl, server.authHeaders)
-                                .map { spec -> spec.name }
-                        }
-                        val tools = probeResult.getOrDefault(emptyList())
-                        val error = probeResult.exceptionOrNull()?.toMcpFailureLabel()
-                        _uiState.update { state ->
-                            state.copy(
-                                mcpServerTools = state.mcpServerTools + (server.id to tools),
-                                mcpServerErrors = if (error == null) {
-                                    state.mcpServerErrors - server.id
-                                } else {
-                                    state.mcpServerErrors + (server.id to error)
-                                },
-                            )
-                        }
-                        McpProbeOutcome(tools, error)
-                    }
-                }.awaitAll()
-            }
-            val okCount = outcomes.count { it.tools.isNotEmpty() }
-            val durationMs = System.currentTimeMillis() - startedAt
-            val result: ConnectivityResult = if (okCount > 0) {
-                ConnectivityResult.Success(
-                    latencyMs = durationMs,
-                    modelName = "$okCount/${targets.size} 可用",
-                )
-            } else {
-                ConnectivityResult.Unreachable(
-                    outcomes.firstNotNullOfOrNull { it.error } ?: "全部不可达",
-                )
-            }
-            AppLogger.info(
-                LogTags.Config,
-                "ui_mcp_connectivity_check_completed",
-                "targetCount" to targets.size,
-                "okCount" to okCount,
-                "durationMs" to durationMs,
-                "parallel" to true,
-            )
-            _uiState.update {
-                it.copy(
-                    mcpConnectivityResult = result,
-                    isCheckingConnectivity = false,
-                )
-            }
-        }
-    }
-
-    private fun Throwable.toMcpFailureLabel(): String {
-        val raw = message.orEmpty()
-        return when {
-            raw.contains("401") || raw.contains("token", ignoreCase = true) || raw.contains("令牌") ->
-                "令牌无效或已过期"
-            raw.contains("403") || raw.contains("forbidden", ignoreCase = true) ->
-                "没有访问权限"
-            raw.contains("412") || raw.contains("CAExited", ignoreCase = true) ||
-                raw.contains("instance exited", ignoreCase = true) -> "远程服务启动失败"
-            raw.contains("timeout", ignoreCase = true) || raw.contains("timed out", ignoreCase = true) ||
-                raw.contains("超时") -> "连接超时"
-            raw.isBlank() -> "连接失败"
-            else -> raw.replace(Regex("https?://\\S+"), "远程服务").take(80)
-        }
-    }
-
-    private data class McpProbeOutcome(
-        val tools: List<String>,
-        val error: String?,
-    )
-
     //endregion
 
     //region 委托给 UseCase
@@ -1128,62 +1013,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun prepareMcpSettings() {
-        settingsUseCase.prepareMcpSettings { reducer -> _uiState.update(reducer) }
-    }
-
-    fun updateMcpSettingsUrl(value: String) {
-        settingsUseCase.updateMcpSettingsUrl(value) { reducer -> _uiState.update(reducer) }
-    }
-
-    fun updateMcpSettingsName(value: String) {
-        settingsUseCase.updateMcpSettingsName(value) { reducer -> _uiState.update(reducer) }
-    }
-
-    fun updateMcpSettingsApiKey(value: String) {
-        settingsUseCase.updateMcpSettingsApiKey(value) { reducer -> _uiState.update(reducer) }
-    }
-
-    fun updateMcpSettingsAuthToken(value: String) {
-        settingsUseCase.updateMcpSettingsAuthToken(value) { reducer -> _uiState.update(reducer) }
-    }
-
-    fun selectMcpProvider(providerId: String) {
-        settingsUseCase.selectMcpProvider(providerId) { reducer -> _uiState.update(reducer) }
-    }
-
-    fun toggleMcpKeyVisibility() {
-        settingsUseCase.toggleMcpKeyVisibility { reducer -> _uiState.update(reducer) }
-    }
-
-    fun startNewMcpSettings() {
-        settingsUseCase.startNewMcpServer { reducer -> _uiState.update(reducer) }
-    }
-
-    fun loadMcpServerForEditing(serverId: String) {
-        settingsUseCase.loadMcpServerForEditing(serverId) { reducer -> _uiState.update(reducer) }
-    }
-
-    fun removeMcpServer(serverId: String) {
-        viewModelScope.launch {
-            settingsUseCase.removeMcpServer(serverId) { reducer -> _uiState.update(reducer) }
-        }
-    }
-
-    fun toggleMcpServerEnabled(serverId: String) {
-        viewModelScope.launch {
-            settingsUseCase.toggleMcpServerEnabled(serverId) { reducer -> _uiState.update(reducer) }
-        }
-    }
-
-    fun saveMcpSettings() {
-        viewModelScope.launch {
-            settingsUseCase.saveMcpSettings(_uiState.value, viewModelScope) { reducer ->
-                _uiState.update(reducer)
-            }
-        }
-    }
-
     fun setDeviceStatusContextEnabled(value: Boolean) {
         viewModelScope.launch {
             settingsUseCase.setDeviceStatusContextEnabled(value) { reducer -> _uiState.update(reducer) }
@@ -1211,12 +1040,6 @@ class ChatViewModel @Inject constructor(
     fun setNotificationEnabled(value: Boolean) {
         viewModelScope.launch {
             settingsUseCase.setNotificationEnabled(value) { reducer -> _uiState.update(reducer) }
-        }
-    }
-
-    fun setMcpEnabled(value: Boolean) {
-        viewModelScope.launch {
-            settingsUseCase.setMcpEnabled(value) { reducer -> _uiState.update(reducer) }
         }
     }
 
@@ -1481,11 +1304,3 @@ class ChatViewModel @Inject constructor(
         private const val CHAT_MODE_HISTORY_LIMIT = 5
     }
 }
-
-private data class Quintuple<A, B, C, D, E>(
-    val first: A,
-    val second: B,
-    val third: C,
-    val fourth: D,
-    val fifth: E,
-)

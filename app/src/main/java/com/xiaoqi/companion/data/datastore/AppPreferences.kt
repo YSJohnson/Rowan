@@ -33,21 +33,10 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
     val weatherContextEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.weatherContextEnabled] ?: true }
     val reminderToolEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.reminderToolEnabled] ?: true }
     /**
-     * MCP 总开关。默认 true,关掉后所有 enabled 的 MCP server 工具都不会注册(系统内置工具不受影响)。
-     * 与 per-server 的 McpServerConfig.enabled 是"总闸 vs 分闸"关系。
-     */
-    val mcpEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.mcpEnabled] ?: true }
-    /**
      * 系统默认工具开关。默认 true,关掉后 11 个内置工具(记忆/时间/提醒/Health 等)都不注册,
      * 让用户能走"裸聊天"模式。
      */
     val systemToolsEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.systemToolsEnabled] ?: true }
-    val mcpServerName: Flow<String> = dataStore.data.map { it[Keys.mcpServerName] ?: "" }
-    val mcpHttpUrl: Flow<String> = dataStore.data.map { it[Keys.mcpHttpUrl] ?: "" }
-    val mcpProviderId: Flow<String> = dataStore.data.map { it[Keys.mcpProviderId] ?: "" }
-    val mcpApiKey: Flow<String> = dataStore.data.map { it[Keys.mcpApiKey] ?: "" }
-    /** 多 server 模式下的列表 (JSON 字符串,见 [McpServerConfig] 序列化)。老字段保留作迁移用。 */
-    val mcpServersJson: Flow<String> = dataStore.data.map { it[Keys.mcpServersJson] ?: "[]" }
     val llmProvider: Flow<LlmProvider> = dataStore.data.map {
         LlmProvider.fromStoredName(it[Keys.llmProvider], defaultLlmProvider)
     }
@@ -96,13 +85,7 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
     suspend fun setLocationContextEnabled(value: Boolean) { dataStore.edit { it[Keys.locationContextEnabled] = value } }
     suspend fun setWeatherContextEnabled(value: Boolean) { dataStore.edit { it[Keys.weatherContextEnabled] = value } }
     suspend fun setReminderToolEnabled(value: Boolean) { dataStore.edit { it[Keys.reminderToolEnabled] = value } }
-    suspend fun setMcpEnabled(value: Boolean) { dataStore.edit { it[Keys.mcpEnabled] = value } }
     suspend fun setSystemToolsEnabled(value: Boolean) { dataStore.edit { it[Keys.systemToolsEnabled] = value } }
-    suspend fun setMcpServerName(value: String) { dataStore.edit { it[Keys.mcpServerName] = value } }
-    suspend fun setMcpHttpUrl(value: String) { dataStore.edit { it[Keys.mcpHttpUrl] = value } }
-    suspend fun setMcpProviderId(value: String) { dataStore.edit { it[Keys.mcpProviderId] = value } }
-    suspend fun setMcpApiKey(value: String) { dataStore.edit { it[Keys.mcpApiKey] = value } }
-    suspend fun setMcpServersJson(value: String) { dataStore.edit { it[Keys.mcpServersJson] = value } }
     suspend fun setLlmProvider(value: LlmProvider) { dataStore.edit { it[Keys.llmProvider] = value.name } }
     suspend fun setModelName(value: String) { dataStore.edit { it[Keys.modelName] = value } }
     suspend fun setUserPatternsJson(value: String) { dataStore.edit { it[Keys.userPatternsJson] = value } }
@@ -127,13 +110,7 @@ class AppPreferences @Inject constructor(private val dataStore: DataStore<Prefer
         val locationContextEnabled = booleanPreferencesKey("location_context_enabled")
         val weatherContextEnabled = booleanPreferencesKey("weather_context_enabled")
         val reminderToolEnabled = booleanPreferencesKey("reminder_tool_enabled")
-        val mcpEnabled = booleanPreferencesKey("mcp_enabled")
         val systemToolsEnabled = booleanPreferencesKey("system_tools_enabled")
-        val mcpServerName = stringPreferencesKey("mcp_server_name")
-        val mcpHttpUrl = stringPreferencesKey("mcp_http_url")
-        val mcpProviderId = stringPreferencesKey("mcp_provider_id")
-        val mcpApiKey = stringPreferencesKey("mcp_api_key")
-        val mcpServersJson = stringPreferencesKey("mcp_servers_json")
         val llmProvider = stringPreferencesKey("llm_provider")
         val modelName = stringPreferencesKey("model_name")
         val userPatternsJson = stringPreferencesKey("user_patterns_json")

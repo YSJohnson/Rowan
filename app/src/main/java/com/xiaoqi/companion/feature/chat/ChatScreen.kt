@@ -107,7 +107,6 @@ fun ChatScreen(
     viewModel: ChatViewModel,
     onOpenMemoryRoom: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenMcpSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val conversations by viewModel.conversations.collectAsStateWithLifecycle()
@@ -136,7 +135,6 @@ fun ChatScreen(
         onOpenMemoryRoom = onOpenMemoryRoom,
         onCancelReminder = { viewModel.cancelReminder(it) },
         onOpenSettings = onOpenSettings,
-        onOpenMcpSettings = onOpenMcpSettings,
         onOpenPermissionSettings = { prompt ->
             when (prompt.type) {
                 ChatPermissionType.EXACT_ALARM -> {
@@ -181,7 +179,6 @@ fun ChatScreenContent(
     onOpenMemoryRoom: () -> Unit,
     onCancelReminder: (String) -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenMcpSettings: () -> Unit,
     onOpenPermissionSettings: (ChatPermissionPrompt) -> Unit,
     onDismissPermissionPrompt: () -> Unit,
     onAttachImage: (Uri) -> Unit,
@@ -358,8 +355,6 @@ fun ChatScreenContent(
                 chatMode = uiState.chatMode,
                 memories = uiState.memories,
                 reminders = uiState.reminders,
-                toolSettings = uiState.toolCapabilitySettings,
-                mcpServerTools = uiState.mcpServerTools,
                 isLoading = uiState.isLoading,
                 latestActivity = latestMessage?.takeIf { it.isStreaming }?.toolStatus,
                 hasError = uiState.error != null,
@@ -367,7 +362,6 @@ fun ChatScreenContent(
                 onOpenMemoryRoom = onOpenMemoryRoom,
                 onOpenReminders = { isRemindersOpen = true },
                 onOpenConversations = { isConversationsOpen = true },
-                onOpenMcpSettings = onOpenMcpSettings,
                 onOpenSettings = onOpenSettings,
                 onPresenceTapped = onPresenceTapped,
             )
@@ -882,7 +876,6 @@ private fun ChatPreviewContent(state: ChatUiState) {
             onOpenMemoryRoom = {},
             onCancelReminder = {},
             onOpenSettings = {},
-            onOpenMcpSettings = {},
             onOpenPermissionSettings = {},
             onDismissPermissionPrompt = {},
             onAttachImage = {},

@@ -69,11 +69,7 @@ class ToolDisplayRegistry @Inject constructor(
             "query_health_data" -> ToolDisplayLabels("读取健康数据中", "已读取健康数据", "健康数据读取失败")
             "create_local_reminder" -> ToolDisplayLabels("创建提醒中", "已创建", "创建失败")
             "update_state" -> ToolDisplayLabels("更新状态中", "已更新", "更新失败")
-            else -> if (toolName.startsWith("mcp__")) {
-                ToolDisplayLabels("查询外部服务中", "外部服务已返回", "外部服务失败")
-            } else {
-                ToolDisplayLabels("使用工具中", "工具已完成", "工具失败")
-            }
+            else -> ToolDisplayLabels("使用工具中", "工具已完成", "工具失败")
         }
 
     private fun escapeJsonString(s: String): String =

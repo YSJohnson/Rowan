@@ -19,7 +19,6 @@ import com.xiaoqi.companion.core.tools.AgentToolRegistry
 import com.xiaoqi.companion.core.tools.ToolCallRecorder
 import com.xiaoqi.companion.core.tools.ToolCategory
 import com.xiaoqi.companion.core.tools.ToolPolicy
-import com.xiaoqi.companion.core.tools.ToolScope
 import com.xiaoqi.companion.data.db.converter.LlmProvider
 import com.xiaoqi.companion.data.db.dao.ToolCallDao
 import com.xiaoqi.companion.data.db.entity.ToolCallEntity
@@ -52,7 +51,7 @@ class KoogAgentFactoryImplTest {
             },
             toolCallRecorder = toolCallRecorder,
             toolRegistry = object : AgentToolRegistry {
-                override fun create(scope: ToolScope, policy: ToolPolicy): ToolRegistry =
+                override fun create(policy: ToolPolicy): ToolRegistry =
                     ToolRegistry.builder()
                         .tool(noteTool)
                         .build()
@@ -98,7 +97,7 @@ class KoogAgentFactoryImplTest {
             },
             toolCallRecorder = toolCallRecorder,
             toolRegistry = object : AgentToolRegistry {
-                override fun create(scope: ToolScope, policy: ToolPolicy): ToolRegistry =
+                override fun create(policy: ToolPolicy): ToolRegistry =
                     ToolRegistry.builder()
                         .tool(noteTool)
                         .build()
@@ -154,7 +153,7 @@ class KoogAgentFactoryImplTest {
             },
             toolCallRecorder = toolCallRecorder,
             toolRegistry = object : AgentToolRegistry {
-                override fun create(scope: ToolScope, policy: ToolPolicy): ToolRegistry =
+                override fun create(policy: ToolPolicy): ToolRegistry =
                     ToolRegistry.builder()
                         .tool(noteTool)
                         .build()
@@ -183,7 +182,7 @@ class KoogAgentFactoryImplTest {
             },
             toolCallRecorder = toolCallRecorder,
             toolRegistry = object : AgentToolRegistry {
-                override fun create(scope: ToolScope, policy: ToolPolicy): ToolRegistry {
+                override fun create(policy: ToolPolicy): ToolRegistry {
                     policies += policy
                     return ToolRegistry.builder()
                         .tool(NamedTestTool("maps_around_search"))
@@ -228,7 +227,7 @@ class KoogAgentFactoryImplTest {
             },
             toolCallRecorder = toolCallRecorder,
             toolRegistry = object : AgentToolRegistry {
-                override fun create(scope: ToolScope, policy: ToolPolicy): ToolRegistry = ToolRegistry.EMPTY
+                override fun create(policy: ToolPolicy): ToolRegistry = ToolRegistry.EMPTY
             },
         )
 
@@ -248,7 +247,7 @@ class KoogAgentFactoryImplTest {
             },
             toolCallRecorder = toolCallRecorder,
             toolRegistry = object : AgentToolRegistry {
-                override fun create(scope: ToolScope, policy: ToolPolicy): ToolRegistry =
+                override fun create(policy: ToolPolicy): ToolRegistry =
                     ToolRegistry.builder()
                         .tool(noteTool)
                         .build()
@@ -278,7 +277,7 @@ class KoogAgentFactoryImplTest {
             },
             toolCallRecorder = toolCallRecorder,
             toolRegistry = object : AgentToolRegistry {
-                override fun create(scope: ToolScope, policy: ToolPolicy): ToolRegistry =
+                override fun create(policy: ToolPolicy): ToolRegistry =
                     ToolRegistry.builder()
                         .tool(noteTool)
                         .build()

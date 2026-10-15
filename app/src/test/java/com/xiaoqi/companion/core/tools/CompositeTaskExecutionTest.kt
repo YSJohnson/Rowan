@@ -90,11 +90,11 @@ class CompositeTaskExecutionTest {
             "Use Bing web search for latest Android news"
         )!!
 
-        execution.record(listOf(success("mcp__tool__bing_search")))
+        execution.record(listOf(success("bing_search")))
         assertFalse(execution.isComplete)
         assertTrue(execution.nextStepInstruction().contains("crawl_webpage"))
 
-        execution.record(listOf(success("mcp__tool__crawl_webpage")))
+        execution.record(listOf(success("crawl_webpage")))
         assertTrue(execution.isComplete)
     }
 

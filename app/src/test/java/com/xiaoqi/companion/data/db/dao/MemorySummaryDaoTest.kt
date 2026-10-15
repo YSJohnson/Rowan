@@ -17,10 +17,10 @@ class MemorySummaryDaoTest : BaseDaoTest() {
 
     @Test
     fun searchByText_findsSummariesByTitleBodyOrKeywords() = runTest {
-        dao.insert(summary(id = "project", type = SummaryType.PROJECT, title = "Rowan MCP work", keywords = """["mcp","tools"]"""))
+        dao.insert(summary(id = "project", type = SummaryType.PROJECT, title = "Rowan insight work", keywords = """["insight","tools"]"""))
         dao.insert(summary(id = "daily", type = SummaryType.DAILY, title = "Daily note", summary = "We polished memory rooms"))
 
-        val results = dao.searchByText(pattern = "%mcp%", type = SummaryType.PROJECT, limit = 10)
+        val results = dao.searchByText(pattern = "%insight%", type = SummaryType.PROJECT, limit = 10)
 
         assertEquals(listOf("project"), results.map { it.id })
     }

@@ -3,7 +3,6 @@ package com.xiaoqi.companion.core.config
 import com.xiaoqi.companion.data.datastore.AppPreferences
 import com.xiaoqi.companion.data.db.converter.LlmProvider
 import com.xiaoqi.companion.data.repository.DefaultLlmValues
-import com.xiaoqi.companion.data.repository.McpServerListRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -27,7 +26,7 @@ class DebugConfigSeederTest {
         coEvery { prefs.setLlmProvider(any()) } coAnswers { provider.value = firstArg() }
         coEvery { prefs.setBaseUrl(any()) } coAnswers { baseUrl.value = firstArg() }
         coEvery { prefs.setModelName(any()) } coAnswers { model.value = firstArg() }
-        val seeder = DebugConfigSeeder(prefs, mockk<McpServerListRepository>(relaxed = true))
+        val seeder = DebugConfigSeeder(prefs)
 
         seeder.seedLlm(true, LlmProvider.MODELSCOPE, "next-model", "")
         assertEquals(LlmProvider.MODELSCOPE, provider.value)

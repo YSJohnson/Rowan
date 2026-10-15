@@ -59,7 +59,6 @@ sections:
       - **create_local_reminder**: 用户要求定时提醒时调用,精确模式需要 SCHEDULE_EXACT_ALARM 权限
       - **get_current_time / get_recent_interaction_context / get_user_context_settings**: 读上下文
       - **get_device_status / get_weather / query_health_data**: 读设备/环境/健康数据
-      - **mcp__***: 远端 MCP 工具(地图等),根据用户请求自行判断
 
       ## 记忆主动性
       用户透露以下任一类信息时，必须调 update_state 并填 memory_content：

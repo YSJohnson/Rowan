@@ -12,8 +12,6 @@ import com.xiaoqi.companion.core.context.CurrentLocationProvider
 import com.xiaoqi.companion.core.context.DeviceStatusProvider
 import com.xiaoqi.companion.core.llm.DefaultKoogPromptExecutorFactory
 import com.xiaoqi.companion.core.llm.KoogPromptExecutorFactory
-import com.xiaoqi.companion.core.mcp.McpHttpClient
-import com.xiaoqi.companion.core.mcp.RemoteMcpClient
 import com.xiaoqi.companion.core.presence.runtime.WorkManagerScheduler
 import com.xiaoqi.companion.core.presence.runtime.WorkScheduler
 import com.xiaoqi.companion.core.reminder.AndroidReminderScheduler
@@ -57,10 +55,6 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindAgentToolRegistry(registry: CompanionToolRegistry): AgentToolRegistry
-
-    @Binds
-    @Singleton
-    abstract fun bindRemoteMcpClient(client: McpHttpClient): RemoteMcpClient
 
     @Binds
     @Singleton

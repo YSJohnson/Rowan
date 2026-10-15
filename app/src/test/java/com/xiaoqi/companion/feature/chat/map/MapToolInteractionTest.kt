@@ -11,7 +11,7 @@ class MapToolInteractionTest {
         val result = "\"{\"results\":[{\"province\":\"浙江省\",\"city\":\"杭州市\",\"district\":\"西湖区\",\"location\":\"120.130396,30.259242\"}]}\""
 
         val interaction = MapToolInteractionParser.parse(
-            toolName = "mcp__tool__maps_geo",
+            toolName = "maps_geo",
             argumentsJson = """{"address":"西湖","city":"杭州"}""",
             resultJson = result,
         ) as MapToolInteraction.Place
@@ -25,7 +25,7 @@ class MapToolInteractionTest {
     @Test
     fun `parse walking route with metrics`() {
         val interaction = MapToolInteractionParser.parse(
-            toolName = "mcp__tool__maps_direction_walking",
+            toolName = "maps_direction_walking",
             argumentsJson = """{"origin":"120.212600,30.290851","destination":"120.130396,30.259242"}""",
             resultJson = """{"route":{"origin":"120.212600,30.290851","destination":"120.130396,30.259242","paths":[{"distance":10106,"duration":8085}]}}""",
         ) as MapToolInteraction.Route

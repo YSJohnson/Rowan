@@ -53,7 +53,7 @@ object MemorySourceKinds {
     /** 模型对用户人格/偏好/关系的判断——属于推断，不进记忆库。 */
     const val AI_INFERENCE = "ai:inference"
 
-    /** MCP / 搜索等外部数据回写——不是用户说的，不进记忆库。 */
+    /** 搜索等外部数据回写——不是用户说的，不进记忆库。 */
     const val EXTERNAL_TOOL_RESULT = "tool:external_result"
 
     /** 用户**原话**的转写来源；这些来源允许入库，即使内容是模型组织的句子。 */

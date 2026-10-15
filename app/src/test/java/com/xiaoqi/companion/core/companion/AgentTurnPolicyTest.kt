@@ -46,15 +46,14 @@ class AgentTurnPolicyTest {
     }
 
     @Test
-    fun decide_systemOnMcpOff_usesSystemOnlyPolicy() {
+    fun decide_systemToolsEnabled_usesProviderDefaultPolicy() {
         val decision = policy.decide(
             input = UserInput.Text("hello"),
             config = config(LlmProvider.GLM),
             systemToolsEnabled = true,
-            mcpEnabled = false,
         )
 
-        assertEquals(ToolPolicy.systemOnly.allowedCategories, decision.toolPolicy.allowedCategories)
+        assertEquals(ProviderCapabilityRegistry.forProvider(LlmProvider.GLM).defaultToolPolicy, decision.toolPolicy)
     }
 
     @Test
@@ -78,12 +77,11 @@ class AgentTurnPolicyTest {
     }
 
     @Test
-    fun decide_allSystemAndMcpDisabled_usesNonePolicy() {
+    fun decide_systemToolsDisabled_usesNonePolicy() {
         val decision = policy.decide(
             input = UserInput.Text("hello"),
             config = config(LlmProvider.GLM),
             systemToolsEnabled = false,
-            mcpEnabled = false,
         )
 
         assertEquals(AgentTurnMode.CHAT_ONLY, decision.mode)

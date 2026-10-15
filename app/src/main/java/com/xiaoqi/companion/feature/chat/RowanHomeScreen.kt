@@ -69,7 +69,7 @@ import com.xiaoqi.companion.ui.theme.ChatColors
 
 /**
  * 主屏(Rowan Home Stage):
- * - 顶栏:Memory / MCP / Settings 入口
+ * - 顶栏:Memory / Settings 入口
  * - 中央:Presence 视觉舞台(背景光晕 + Rowan 角色 + 状态文案)
  *
  * 视觉绘制拆分到 [feature.chat.presence] 子包:
@@ -82,7 +82,6 @@ fun RowanHomeScreen(
     onOpenChat: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenMemoryRoom: () -> Unit,
-    onOpenMcpSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -97,7 +96,6 @@ fun RowanHomeScreen(
         onPresenceTapped = { viewModel.onPresenceTapped() },
         onOpenSettings = onOpenSettings,
         onOpenMemoryRoom = onOpenMemoryRoom,
-        onOpenMcpSettings = onOpenMcpSettings,
         onInsightLongPress = { insight ->
             AppLogger.debug(
                 LogTags.Chat,
@@ -183,7 +181,6 @@ private fun RowanHomeContent(
     onPresenceTapped: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenMemoryRoom: () -> Unit,
-    onOpenMcpSettings: () -> Unit,
     onInsightLongPress: (com.xiaoqi.companion.feature.chat.ChatInsight) -> Unit,
     onInsightDismiss: (com.xiaoqi.companion.feature.chat.ChatInsight) -> Unit,
     onInsightChat: (com.xiaoqi.companion.feature.chat.ChatInsight) -> Unit,
@@ -225,7 +222,6 @@ private fun RowanHomeContent(
                 item {
                     HomeTopBar(
                         onOpenMemoryRoom = onOpenMemoryRoom,
-                        onOpenMcpSettings = onOpenMcpSettings,
                         onOpenSettings = onOpenSettings,
                     )
                     Spacer(Modifier.height(8.dp))
@@ -335,7 +331,6 @@ private fun LongTaskEntry(
 @Composable
 private fun HomeTopBar(
     onOpenMemoryRoom: () -> Unit,
-    onOpenMcpSettings: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val primary = MaterialTheme.colorScheme.primary
@@ -363,11 +358,6 @@ private fun HomeTopBar(
                 imageVector = Icons.Default.Favorite,
                 tooltip = "记忆",
                 onClick = onOpenMemoryRoom,
-            )
-            HomeTopActionIcon(
-                imageVector = Icons.Default.Build,
-                tooltip = "MCP",
-                onClick = onOpenMcpSettings,
             )
             HomeTopActionIcon(
                 imageVector = Icons.Default.Settings,

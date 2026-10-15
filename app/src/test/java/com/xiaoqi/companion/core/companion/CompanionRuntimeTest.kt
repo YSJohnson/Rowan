@@ -74,7 +74,6 @@ class CompanionRuntimeTest {
         every { locationContextEnabled } returns flowOf(true)
         every { currentSessionId } returns flowOf("default")
         every { systemToolsEnabled } returns flowOf(true)
-        every { mcpEnabled } returns flowOf(true)
     }
 
     private val conversationRepository: ConversationRepository = mockk(relaxed = true)
